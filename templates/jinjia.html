@@ -1,0 +1,33 @@
+<div style="width: 1220px; margin: 0 auto;">
+    <h1 style="text-align: center" id="剑网三金价">剑网三金价</h1>
+
+    <div style="overflow-x: auto; overflow-y: hidden;">
+        <table style="width: 100%; border-collapse: collapse; margin: 0 auto;">
+            <thead>
+                <tr style="height: 60px; text-align: center;">
+                    <th style="border:1px solid #000; padding:2px;">时间</th>
+                    {% for item in items %}
+                        <th style="border:1px solid #000; padding:2px;">{{ item.date }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+
+            <tbody>
+                <tr style="height: 50px; text-align: center;">
+                    <td style="border:1px solid #000; padding:2px;">万宝楼</td>
+                    {% for item in items %}
+                        <td style="border:1px solid #000; padding:2px;">{{ item.priceWanbaolou }}</td>
+                    {% endfor %}
+                </tr>
+
+                <tr style="height: 50px; text-align: center;">
+                    <td style="border:1px solid #000; padding:2px;">贴吧</td>
+                    {% for item in items %}
+                        <td style="border:1px solid #000; padding:2px;">{{ item.priceTieba }}</td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>

@@ -1,4 +1,4 @@
-# JX3API
+# Gok
 
 AstrBot 插件模板
 

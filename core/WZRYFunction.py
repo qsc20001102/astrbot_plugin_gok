@@ -174,17 +174,127 @@ class WZRYFunction:
             sql = "SELECT * FROM wzrybl"
             sqlid = await self.__db.fetch_all(sql) 
         except Exception as e:
-            logger.error(f"处理数据时出错: {e}")
+            logger.error(f"SQL执行错误: {e}")
             return_data["msg"] = "处理数据库信息时出错"
             return return_data
         
         # 加载模板
         try:
-            return_data["temp"] = load_template("temp_test.html")
+            return_data["temp"] = load_template("bilei.html")
         except FileNotFoundError as e:
             logger.error(f"加载模板失败: {e}")
             return_data["msg"] = "系统错误：模板文件不存在"
             return return_data  
         return_data["data"]["lists"] = sqlid
         return_data["code"] = 200
+        return return_data
+    
+    async def bilei_add(self,name:str, text:str, user:str):
+        """
+        仇人 添加
+        """
+        return_data = {
+            "code": 0,
+            "msg": "功能函数未执行",
+            "data": {}
+        }
+        # 获取系统时间
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # 插入数据
+        try:
+            sql = "INSERT INTO wzrybl (name, text, time, user) VALUES (%s, %s, %s, %s)"
+            await self.__db.execute(sql, (name, text, now, user))
+        except Exception as e:
+            logger.error(f"SQL执行错误: {e}")
+            return_data["msg"] = "处理数据库信息时出错"
+            return return_data
+        return_data["msg"] = "添加成功\n"
+        return_data["msg"] += "仇人名称："+name+"\n"
+        return_data["msg"] += "仇人备注："+text+"\n"
+        return_data["msg"] += "添加时间："+now+"\n"
+        return_data["msg"] += "记录人："+user+"\n"
+        return_data["code"] = 200
+        return return_data
+    
+    async def bilei_select(self,name:str):
+        """
+        仇人 查找
+        """
+        return_data = {
+            "code": 0,
+            "msg": "功能函数未执行",
+            "data": {}
+        }
+        # 查询数据
+        try:
+            sql = "SELECT * FROM wzrybl WHERE name LIKE %s"
+            sqlid = await self.__db.fetch_all(sql, ("%"+name+"%",))
+        except Exception as e:
+            logger.error(f"SQL执行错误: {e}")
+            return_data["msg"] = "处理数据库信息时出错"
+            return return_data
+        # 加载模板
+        try:
+            return_data["temp"] = load_template("bilei.html")
+        except FileNotFoundError as e:
+            logger.error(f"加载模板失败: {e}")
+            return_data["msg"] = "系统错误：模板文件不存在"
+            return return_data  
+        return_data["data"]["lists"] = sqlid
+        return_data["code"] = 200
+        return return_data
+    
+
+    async def bilei_update(self, id:int, name:str, text:str, user:str):
+        """
+        仇人 修改 ID 名称 备注
+        """
+        return_data = {
+            "code": 0,
+            "msg": "功能函数未执行",
+            "data": {}
+        }
+        # 获取系统时间
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # 查询数据
+        try:
+            sql = "UPDATE wzrybl SET name = %s, text = %s, time = %s, user = %s WHERE id = %s"
+            rowcount = await self.__db.execute(sql, (name, text, now, user, id))
+            if rowcount > 0:
+                return_data["msg"] = "修改成功\n"
+                return_data["msg"] += "仇人名称："+name+"\n"
+                return_data["msg"] += "仇人备注："+text+"\n"
+                return_data["msg"] += "修改时间："+now+"\n"
+                return_data["msg"] += "记录人："+user+"\n"
+                return_data["code"] = 200
+            else:
+                return_data["msg"] = "修改失败，未找到对应记录"
+        except Exception as e:
+            logger.error(f"SQL执行错误: {e}")
+            return_data["msg"] = "处理数据库信息时出错"
+            return return_data
+        return return_data
+    
+    async def bilei_delete(self, id:int):
+        """
+        仇人 删除 ID
+        """
+        return_data = {
+            "code": 0,
+            "msg": "功能函数未执行",
+            "data": {}
+        }
+        # 查询数据
+        try:
+            sql = "DELETE FROM wzrybl WHERE id = %s"
+            rowcount = await self.__db.execute(sql, (id,))
+            if rowcount > 0:
+                return_data["msg"] = "删除成功\n"
+                return_data["code"] = 200
+            else:
+                return_data["msg"] = "删除失败，未找到对应记录"
+        except Exception as e:
+            logger.error(f"SQL执行错误: {e}")
+            return_data["msg"] = "处理数据库信息时出错"
+            return return_data
         return return_data

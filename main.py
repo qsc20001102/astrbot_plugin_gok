@@ -15,7 +15,7 @@ from .core.WZRYFunction import WZRYFunction
 
 @register("astrbot_plugin_gok", 
           "飞翔大野猪", 
-          "通过接口调用剑网三API接口获取游戏数据", 
+          "通过接口接口获取王者荣耀游戏数据", 
           "1.0.0",
           "https://github.com/qsc20001102/astrbot_plugin_gok"
 )
@@ -32,8 +32,7 @@ class GokApiPlugin(Star):
         with open(self.api_file_path, 'r', encoding='utf-8') as f:
             self.api_config = json.load(f)  
         # 初始化数据
-        self.inidata()
-        logger.info("jx3api插件初始化完成")
+        logger.info("王者荣耀插件初始化完成")
 
 
     async def initialize(self):
@@ -54,12 +53,7 @@ class GokApiPlugin(Star):
         # 周期函数调用
     
 
-        logger.info("jx3api插件创建实例完成")
-
-    def inidata(self):
-        """数据初始化"""
-        self.test_server = False
-        logger.info("数据初始化完成")
+        logger.info("王者荣耀插件创建实例完成")
 
 
     @filter.command_group("王者")
@@ -148,9 +142,13 @@ class GokApiPlugin(Star):
             logger.error(f"功能函数执行错误: {e}")
             yield event.plain_result("猪脑过载，请稍后再试") 
 
-    @filter.command("仇人列表")
-    async def wz_bilei(self, event: AstrMessageEvent,):
-        """仇人列表"""
+    @filter.command_group("仇人")
+    def bilei(self):
+        pass
+
+    @bilei.command("列表")
+    async def bilei_list(self, event: AstrMessageEvent,):
+        """仇人 列表"""
         try:
             data = await self.wzry.bilei_all()
             if data["code"] == 200:
@@ -159,8 +157,54 @@ class GokApiPlugin(Star):
             else:
                 yield event.plain_result(data["msg"])
             return
-            #logger.info(f"输出结果{event.get_sender_name()}\n{out}")
-            #yield event.plain_result(f"{out}") 
+        except Exception as e:
+            logger.error(f"功能函数执行错误: {e}")
+            yield event.plain_result("猪脑过载，请稍后再试") 
+
+
+    @bilei.command("添加")
+    async def bilei_add(self, event: AstrMessageEvent,name: str, text: str):
+        """仇人 添加 名称 备注"""
+        try:
+            data = await self.wzry.bilei_add(name, text, event.get_sender_name())
+            yield event.plain_result(data["msg"])
+        except Exception as e:
+            logger.error(f"功能函数执行错误: {e}")
+            yield event.plain_result("猪脑过载，请稍后再试") 
+
+
+    @bilei.command("查找")
+    async def bilei_select(self, event: AstrMessageEvent,name: str):
+        """仇人 查找 名称（模糊查找）"""
+        try:
+            data = await self.wzry.bilei_select(name)
+            if data["code"] == 200:
+                url = await self.html_render(data["temp"], data["data"], options={})
+                yield event.image_result(url)
+            else:
+                yield event.plain_result(data["msg"])
+            return
+        except Exception as e:
+            logger.error(f"功能函数执行错误: {e}")
+            yield event.plain_result("猪脑过载，请稍后再试") 
+
+
+    @bilei.command("修改")
+    async def bilei_update(self, event: AstrMessageEvent,id:int, name: str, text: str):
+        """仇人 修改 ID 名称 备注"""
+        try:
+            data = await self.wzry.bilei_update(id, name, text, event.get_sender_name())
+            yield event.plain_result(data["msg"])
+        except Exception as e:
+            logger.error(f"功能函数执行错误: {e}")
+            yield event.plain_result("猪脑过载，请稍后再试") 
+
+    @bilei.command("删除")
+    async def bilei_delete(self, event: AstrMessageEvent,id:int):
+        """仇人 删除 ID """
+        try:
+            data = await self.wzry.bilei_delete(id)
+            yield event.plain_result(data["msg"])
         except Exception as e:
             logger.error(f"功能函数执行错误: {e}")
             yield event.plain_result("猪脑过载，请稍后再试") 
@@ -170,5 +214,4 @@ class GokApiPlugin(Star):
         """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
         await self.db.close_pool()
         # 后台进程销毁
-        self.kf_task.cancel()
-        logger.info("jx3api插件已卸载/停用")
+        logger.info("王者荣耀插件已卸载/停用")

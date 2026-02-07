@@ -32,7 +32,6 @@ def extract_fields(data_list, fields):
             extracted = {field: item.get(field) for field in fields}
             result.append(extracted)
     except Exception as e:
-        print(f"提取字段时出错: {e}")
         return []
     return result
 

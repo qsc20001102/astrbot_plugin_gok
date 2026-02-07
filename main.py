@@ -42,7 +42,7 @@ class GokApiPlugin(Star):
             'host': '38.12.28.24',
             'port': 3306,
             'user': 'asrtbot',
-            'password': 'qsc123456',
+            'password': 'qsc102341',
             'db': 'asrtbot',  
             'charset': 'utf8mb4',
             'autocommit': True

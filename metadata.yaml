@@ -1,6 +1,6 @@
-name: astrbot_plugin_gok # 这是你的插件的唯一识别名。
-display_name: 王者荣耀数据查询工具 # 插件的显示名称
-desc: 王者荣耀的战绩、资料等内容的查询 # 插件简短描述
-version: v1.0.0 # 插件版本号。格式：v1.1.1 或者 v1.1
-author: 飞翔大野猪 # 作者
-repo: https://github.com/qsc20001102/astrbot_plugin_gok # 插件的仓库地址
+name: astrbot_plugin_gok 
+display_name: 王者荣耀游戏数据查询工具 
+desc: 王者荣耀的战绩、资料等内容的查询 
+version: v1.0.0 
+author: 飞翔大野猪 
+repo: https://github.com/qsc20001102/astrbot_plugin_gok 

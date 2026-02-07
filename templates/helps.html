@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>王者插件功能</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 40px 20px;
+            background: linear-gradient(180deg, #f5f7fb 0%, #eef1f7 100%);
+            color: #2c2c33;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+        }
+
+        /* 页面主体宽度控制 */
+        .container {
+            max-width: 980px;
+            margin: 0 auto;
+        }
+
+        /* 顶部标题 */
+        .header {
+            margin-bottom: 36px;
+        }
+
+        .header h1 {
+            font-size: 42px;
+            margin: 0 0 10px;
+            color: #1f2a44;
+        }
+
+        .header p {
+            font-size: 20px;
+            color: #5a627a;
+            margin: 0;
+        }
+
+        /* 分组 */
+        .group {
+            margin-bottom: 42px;
+        }
+
+        .group-title {
+            font-size: 30px;
+            font-weight: bold;
+            margin-bottom: 18px;
+            padding-left: 14px;
+            border-left: 6px solid #4f7cff;
+            color: #1f2a44;
+        }
+
+        /* 单列 */
+        .command-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+        }
+
+        /* 指令行 */
+        .command {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 14px 18px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+
+            display: inline-flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .command::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 4px;
+            height: 100%;
+            background: #4f7cff;
+        }
+
+        .cmd-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2b3a67;
+            white-space: nowrap;
+            min-width: 140px;
+        }
+
+        .cmd-usage {
+            font-size: 22px;
+            color: #1f2a44;
+            background: #f0f3ff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-family: Consolas, "Courier New", monospace;
+            white-space: nowrap;
+        }
+
+        /* 提示 */
+        .tip {
+            margin-top: 40px;
+            font-size: 16px;
+            color: #5a5f73;
+            background: #fffbe6;
+            padding: 16px 20px;
+            border-left: 6px solid #ffcc00;
+            border-radius: 10px;
+            line-height: 1.6;
+        }
+
+        /* 小屏适配 */
+        @media (max-width: 640px) {
+            .cmd-name {
+                min-width: auto;
+            }
+
+            .command {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+<div class="header">
+    <h1>王者插件功能</h1>
+    <p>astrbot_plugin_gok 指令说明与使用示例</p>
+</div>
+
+<div class="group">
+    <div class="group-title">基础功能</div>
+    <div class="command-grid">
+        <div class="command"><div class="cmd-name">王者功能</div><div class="cmd-usage">王者功能</div></div>
+        <div class="command"><div class="cmd-name">王者战绩</div><div class="cmd-usage">王者战绩 角色/营地ID</div></div>
+        <div class="command"><div class="cmd-name">王者资料</div><div class="cmd-usage">王者资料 角色/营地ID</div></div>
+        <div class="command"><div class="cmd-name">角色查看</div><div class="cmd-usage">角色查看</div></div>
+        <div class="command"><div class="cmd-name">角色添加</div><div class="cmd-usage">角色添加 营地ID 角色</div></div>
+        <div class="command"><div class="cmd-name">角色修改</div><div class="cmd-usage">角色修改 营地ID 角色</div></div>
+        <div class="command"><div class="cmd-name">角色删除</div><div class="cmd-usage">角色删除 营地ID</div></div>
+        <div class="command"><div class="cmd-name">角色查询</div><div class="cmd-usage">角色查询 营地ID/角色</div></div>
+    </div>
+</div>
+
+<div class="tip">
+    <strong>使用提示：</strong><br>
+    1. 指令里面的角色指的是自定义的查询名称<br>
+    2. 战绩和资料的指令必须 token 可以使用<br>
+</div>
+
+</div>
+</body>
+</html>

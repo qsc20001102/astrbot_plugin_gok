@@ -1,2 +1,1 @@
-aiomysql
-matplotlib
+aiosqlite

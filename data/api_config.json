@@ -1,21 +1,21 @@
 {
-    "wzry_zhanji":{
+    "gok_zhanji":{
         "url":"https://api.t1qq.com/api/tool/wzrr/morebattle",
         "method":"GET",
         "description":"王者荣耀战绩查询",
         "params":{
-            "key": "vBpEzoiC9z5A9c9Nn83IhLn6M9",
-            "id": "489048724",
+            "key": "",
+            "id": "",
             "option": "1"
         }
     },
-    "wzry_ziliao":{
+    "gok_ziliao":{
         "url":"https://api.t1qq.com/api/tool/wzrr/ydtp",
         "method":"GET",
         "description":"王者荣耀资料查询",
         "params":{
-            "key": "vBpEzoiC9z5A9c9Nn83IhLn6M9",
-            "id": "489048724"
+            "key": "",
+            "id": ""
         }
     }
 }

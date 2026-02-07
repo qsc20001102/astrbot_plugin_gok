@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>王者荣耀 — 仇人列表</title>
+<title>角色查看</title>
 
 <style>
     body {
@@ -19,7 +19,7 @@
     }
 
     h1 {
-        font-size: 32px;
+        font-size: 48px;
         margin-bottom: 25px;
         color: #222;
         font-weight: 800;
@@ -27,26 +27,27 @@
     }
 
     table {
-        width: 100%;
+        width: 66%;
         border-collapse: collapse;
         background: white;
         border-radius: 12px;
         overflow: hidden;
         box-shadow: 0 4px 16px rgba(0,0,0,0.08);
         margin-top: 10px;
-        text-align: left;  /* 不影响表格内容 */
+        text-align: left; 
+        margin: 10px auto; 
     }
 
     thead {
         background: #d93939;
         color: white;
-        font-size: 18px;
+        font-size: 27px;
     }
 
     th, td {
         padding: 14px 12px;
         border-bottom: 1px solid #eee;
-        font-size: 16px;
+        font-size: 24px;
     }
 
     tbody tr:hover {
@@ -65,27 +66,21 @@
 <body>
 
 <div class="container">
-    <h1>仇人列表</h1>
+    <h1>角色查看</h1>
 
     <table>
         <thead>
             <tr>
-                <th>ID</th>
-                <th>名称</th>
-                <th>描述</th>
-                <th>时间</th>
-                <th>记录者</th>
+                <th>王者营地ID</th>
+                <th>角色名称</th>
             </tr>
         </thead>
 
         <tbody>
         {% for m in lists %}
             <tr>
-                <td>{{ m.id }}</td>
+                <td>{{ m.gokid }}</td>
                 <td>{{ m.name }}</td>
-                <td class="text-col">{{ m.text }}</td>
-                <td>{{ m.time }}</td>
-                <td>{{ m.user }}</td>
             </tr>
         {% endfor %}
         </tbody>

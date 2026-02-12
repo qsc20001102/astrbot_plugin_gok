@@ -184,6 +184,7 @@ class GokApiPlugin(Star):
             "王者功能": self.gokmag.gok_helps,
             "王者战绩": self.gokmag.gok_zhanji,
             "王者资料": self.gokmag.gok_ziliao,
+            "上榜战力": self.gokmag.gok_zhanli,
             "角色查看": self.gokmag.gok_user_all,
             "角色添加": self.gokmag.gok_user_add,
             "角色修改": self.gokmag.gok_user_update,

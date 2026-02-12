@@ -84,7 +84,10 @@ class GOKCommands(Star):
         """王者资料"""
         return await self.T2I_image_msg(event, lambda: self.gokfun.ziliao(name))
     
-
+    async def gok_zhanli(self, event: AstrMessageEvent, hero: str, type: str = "aqq"):
+        """英雄战力 名称 大区"""
+        return await self.plain_msg(event, lambda: self.gokfun.zhanli(hero,type))
+    
     async def gok_user_all(self, event: AstrMessageEvent):
         """角色查看"""
         return await self.T2I_image_msg(event, self.gokfun.all)

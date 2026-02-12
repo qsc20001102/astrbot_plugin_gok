@@ -18,9 +18,15 @@
         }
     },
     "ytapi_token": {
-        "description": "应天API Token",
+        "description": "应天API 令牌",
         "type": "string",
         "default": "",
-        "hint": "前往https://api.t1qq.com注册并创建Token（免费）。"
+        "hint": "前往https://api.t1qq.com 注册并创建令牌（免费）。"
+    },
+    "nyapi_token": {
+        "description": "柠柚API 令牌",
+        "type": "string",
+        "default": "",
+        "hint": "前往https://api.nycnm.cn 注册并创建令牌（免费）。"
     }
 }

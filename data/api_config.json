@@ -17,5 +17,16 @@
             "key": "",
             "id": ""
         }
+    },
+    "gok_zhanli":{
+        "url":"https://api.nycnm.cn/API/wzzl.php",
+        "method":"GET",
+        "description":"王者英雄战力最低上榜战力",
+        "params":{
+            "hero": "",
+            "type": "",
+            "format": "json",
+            "apikey": ""
+        }
     }
 }

@@ -419,7 +419,6 @@ class GOKServer:
 
         # 获取数据
         data: Optional[List[Dict[str, Any]]] = await self._base_request("gok_ziliao", "GET", params=params, out_key="")   
-        logger.debug(data)
         
         if not data:
             return_data["msg"] = "获取接口信息失败"
@@ -446,3 +445,38 @@ class GOKServer:
         return return_data
 
 
+    async def zhanli(self,hero: str, type: str):
+        return_data = self._init_return_data()
+        # 获取配置中的 Token
+        token = self._config.get("nyapi_token", "")
+        if  token == "":
+            return_data["msg"] = "系统未配置API访问Token"
+            return return_data
+
+        #更新参数
+        params = {"hero": hero, "type": type, "apikey": token}
+
+        # 获取数据
+        data: Optional[List[Dict[str, Any]]] = await self._base_request("gok_zhanli", "GET", params=params)   
+        
+        if not data:
+            return_data["msg"] = "获取接口信息失败"
+            return  return_data  
+
+        try:
+            data0 = data['info']
+            msg = "英雄的最低上榜地区战力\n"
+            msg += f"英雄：{data0['name']}\n"
+            msg += f"省标：{data0['province']}--战力：{data0['provincePower']}\n"
+            msg += f"市标：{data0['city']}--战力：{data0['cityPower']}\n"
+            msg += f"区标：{data0['area']}--战力：{data0['areaPower']}\n"
+            msg += f"数据更新时间：{data0['updatetime']}\n"
+            return_data["data"] = msg
+        except Exception as e:
+            logger.error(f"处理数据时出错: {e}")
+            return_data["msg"] = "处理接口返回信息时出错"
+            return  return_data
+
+        return_data["code"] = 200
+
+        return return_data

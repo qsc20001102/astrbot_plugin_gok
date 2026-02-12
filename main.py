@@ -20,7 +20,7 @@ from .core.gok_commands import GOKCommands
 @register("astrbot_plugin_gok", 
           "fxdyz", 
           "通过接口获取王者荣耀游戏数据", 
-          "1.0.0",
+          "1.0.1",
           "https://github.com/qsc20001102/astrbot_plugin_gok.git"
 )
 class GokApiPlugin(Star):

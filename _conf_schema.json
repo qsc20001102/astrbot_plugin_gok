@@ -28,5 +28,24 @@
         "type": "string",
         "default": "",
         "hint": "前往https://api.nycnm.cn 注册并创建令牌（免费）。"
+    },
+    "comment": {
+        "description": "战绩锐评",
+        "type": "object",
+        "items": {
+        "enable": {
+            "description": "是否启用",
+            "type": "bool",
+            "default": false,
+            "hint": "是否启用战绩锐评功能"
+        },
+        "select_provider": {
+            "description": "锐评模型",
+            "type": "string",
+            "hint": "锐评战绩的模型，留空使用会话默认模型",
+            "default": "",
+            "_special": "select_provider"
+        }
+        }
     }
 }

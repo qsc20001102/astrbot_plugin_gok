@@ -347,6 +347,11 @@ class GOKServer:
             return_data["msg"] = "系统未配置API访问Token"
             return return_data
         
+        self.comment_en = self._config.get("comment").get("enable")
+        logger.debug(self.comment_en)
+        self.comment_provider = self._config.get("comment").get("select_provider")
+        logger.debug(self.comment_provider)
+        
         # ID查询
         gokid = await self.get_gokid(name)
 
@@ -362,6 +367,8 @@ class GOKServer:
                   "oldMasterMatchScore","newMasterMatchScore","usedTime","winNum","failNum","roleJobName","stars","desc",
                   "gradeGame","heroIcon","godLikeCnt", "firstBlood","hero1TripleKillCnt","hero1UltraKillCnt","hero1RampageCnt","evaluateUrlV3","mvpUrlV3"]
         
+        
+
         # 获取数据
         data: Optional[List[Dict[str, Any]]] = await self._base_request("gok_zhanji", "GET", params=params)       
         if not data:
@@ -370,7 +377,16 @@ class GOKServer:
 
         # 处理返回数据
         try:
- 
+            # 提取锐评数据
+            if self.comment_en:
+                return_data["comment"] = {}
+                comment = ["gametime","killcnt","deadcnt","assistcnt","gameresult","mvpcnt","losemvp","gradeGame"]
+                comments = extract_fields(data['list'], comment)
+                comments = comments[:10]
+                return_data["comment"]["data"] = comments 
+                return_data["comment"]["provider"] = self.comment_provider  
+                return_data["comment"]["en"] = self.comment_en  
+
             # 提取字段
             result = extract_fields(data['list'], fields)
             result = result[:25]
@@ -381,6 +397,7 @@ class GOKServer:
                 m["time_str"] = f"{minutes}:{seconds:02d}"
                 
             return_data["data"]["data"] = result  
+            
         except Exception as e:
             logger.error(f"处理数据时出错: {e}")
             return_data["msg"] = "处理接口返回信息时出错"

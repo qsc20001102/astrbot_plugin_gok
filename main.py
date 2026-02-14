@@ -14,7 +14,6 @@ from astrbot.api import AstrBotConfig
 
 from .core.sqlite import AsyncSQLiteDB
 from .core.gok_data import GOKServer
-from .core.gok_commands import GOKCommands
 
 
 @register("astrbot_plugin_gok", 
@@ -71,8 +70,7 @@ class GokApiPlugin(Star):
             """)
             # 王者功能 实例化
             self.gokfun = GOKServer(self.api_config, self.conf, self.sql_db)
-            # 发送消息实例化
-            self.gokmag = GOKCommands(self.gokfun)
+
         except Exception as e:
             logger.error(f"功能模块初始化失败: {e}")
             raise
@@ -181,16 +179,138 @@ class GokApiPlugin(Star):
     def ini_command_map(self):
         """初始化指令集"""
         self.command_map = {
-            "王者功能": self.gokmag.gok_helps,
-            "王者战绩": self.gokmag.gok_zhanji,
-            "王者资料": self.gokmag.gok_ziliao,
-            "上榜战力": self.gokmag.gok_zhanli,
-            "角色查看": self.gokmag.gok_user_all,
-            "角色添加": self.gokmag.gok_user_add,
-            "角色修改": self.gokmag.gok_user_update,
-            "角色删除": self.gokmag.gok_user_delete,
-            "角色查询": self.gokmag.gok_user_select
+            "王者功能": self.gok_helps,
+            "王者战绩": self.gok_zhanji,
+            "王者资料": self.gok_ziliao,
+            "上榜战力": self.gok_zhanli,
+            "角色查看": self.gok_user_all,
+            "角色添加": self.gok_user_add,
+            "角色修改": self.gok_user_update,
+            "角色删除": self.gok_user_delete,
+            "角色查询": self.gok_user_select
         }
 
 
+    async def plain_msg(self, event: AstrMessageEvent, action):
+        """最终将数据整理成文本发送"""
+        data= await action()
+        try:
+            if data["code"] == 200:
+                await event.send( event.plain_result(data["data"]))
+            else:
+                await event.send(event.plain_result(data["msg"])) 
+        except Exception as e:
+            logger.error(f"功能函数执行错误: {e}")
+            await event.send(event.plain_result("猪脑过载，请稍后再试")) 
 
+
+    async def T2I_image_msg(self, event: AstrMessageEvent, action):
+        """最终将数据渲染成图片发送"""
+        data = await action()
+        try:
+            if data["code"] == 200:
+                url = await self.html_render(data["temp"], data["data"], options={})
+                await event.send(event.image_result(url)) 
+            else:
+                await event.send(event.plain_result(data["msg"])) 
+
+        except Exception as e:
+            logger.error(f"功能函数执行错误: {e}")
+            await event.send(event.plain_result("猪脑过载，请稍后再试")) 
+
+
+    async def image_msg(self, event: AstrMessageEvent, action):
+        """最终将数据整理成图片发送"""
+        data = await action()
+        try:
+            if data["code"] == 200:
+                await event.send(event.image_result(data["data"])) 
+            else:
+                await event.send(event.plain_result(data["msg"])) 
+
+        except Exception as e:
+            logger.error(f"功能函数执行错误: {e}")
+            await event.send(event.plain_result("猪脑过载，请稍后再试")) 
+
+
+    async def T2I_image_and_plain_msg(self, event: AstrMessageEvent, action):
+        """战绩定制功能"""
+        data = await action()
+        # 发送渲染战绩图片
+        try:
+            if data["code"] == 200:
+                url = await self.html_render(data["temp"], data["data"], options={})
+                await event.send(event.image_result(url)) 
+            else:
+                await event.send(event.plain_result(data["msg"])) 
+
+        except Exception as e:
+            logger.error(f"功能函数执行错误: {e}")
+            await event.send(event.plain_result("猪脑过载，请稍后再试")) 
+        # 对战绩进行锐评
+        try:
+            if data["code"] == 200 and data["comment"]["en"]:
+                # 确定使用模型
+                if data["comment"]["provider"] =="":
+                    umo = event.unified_msg_origin
+                    provider_id = await self.context.get_current_chat_provider_id(umo=umo)
+                else:
+                    provider_id = data["comment"]["provider"]
+
+                # 模型提示词构建
+                prompt = "请根据下面提供的王者荣耀最近10把的战绩数据，用简短的一句话进行锐评吐槽。"
+                prompt += f"这是战绩列表\n{data['comment']['data']}\n"
+                prompt += f"gametime 字段 对局开始时间\n"
+                prompt += f"killcnt 字段 击杀数\n"
+                prompt += f"deadcnt 字段 死亡数\n"
+                prompt += f"assistcnt 字段 助攻数\n"
+                prompt += f"gameresult 字段 1代表胜利 2代表失败 3代表平局\n"
+                prompt += f"mvpcnt 字段 1代表是胜利方MVP 0表示不是\n"
+                prompt += f"losemvp 字段 1代表是失败方MVP 0表示不是\n"
+                prompt += f"gradeGame 字段 系统给的评分，满分16分\n"
+
+                # 调用模型
+                llm_resp = await self.context.llm_generate(chat_provider_id=provider_id, prompt=prompt)
+                # 发送消息
+                await event.send(event.plain_result(llm_resp.completion_text)) 
+
+        except Exception as e:
+            logger.error(f"功能函数执行错误: {e}")
+            await event.send(event.plain_result("猪脑过载，请稍后再试")) 
+
+
+    async def gok_helps(self, event: AstrMessageEvent):
+        """王者功能"""
+        return await self.T2I_image_msg(event, self.gokfun.helps)
+    
+    async def gok_zhanji(self, event: AstrMessageEvent,name: str,option:str = 0):
+        """王者战绩"""
+        return await self.T2I_image_and_plain_msg(event, lambda: self.gokfun.zhanji(name ,option))
+    
+    async def gok_ziliao(self, event: AstrMessageEvent,name: str):
+        """王者资料"""
+        return await self.T2I_image_msg(event, lambda: self.gokfun.ziliao(name))
+    
+    async def gok_zhanli(self, event: AstrMessageEvent, hero: str, type: str = "aqq"):
+        """英雄战力 名称 大区"""
+        return await self.plain_msg(event, lambda: self.gokfun.zhanli(hero,type))
+    
+    async def gok_user_all(self, event: AstrMessageEvent):
+        """角色查看"""
+        return await self.T2I_image_msg(event, self.gokfun.all)
+    
+    async def gok_user_add(self, event: AstrMessageEvent, gokid: int, name: str):
+        """角色添加 王者营地ID 名称"""
+        return await self.plain_msg(event, lambda: self.gokfun.add(gokid,name))
+    
+    async def gok_user_update(self, event: AstrMessageEvent, gokid: int, name: str):
+        """角色修改 王者营地ID 名称"""
+        return await self.plain_msg(event, lambda: self.gokfun.update(gokid,name))
+    
+    async def gok_user_delete(self, event: AstrMessageEvent, gokid:int):
+        """角色删除 王者营地ID"""
+        return await self.plain_msg(event, lambda: self.gokfun.delete(gokid))
+    
+    async def gok_user_select(self, event: AstrMessageEvent, gokid):
+        """角色查询 王者营地ID"""
+        return await self.T2I_image_msg(event, lambda: self.gokfun.select(gokid))

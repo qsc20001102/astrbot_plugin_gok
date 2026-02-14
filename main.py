@@ -19,7 +19,7 @@ from .core.gok_data import GOKServer
 @register("astrbot_plugin_gok", 
           "fxdyz", 
           "通过接口获取王者荣耀游戏数据", 
-          "1.0.1",
+          "1.0.2",
           "https://github.com/qsc20001102/astrbot_plugin_gok.git"
 )
 class GokApiPlugin(Star):
@@ -40,9 +40,9 @@ class GokApiPlugin(Star):
         with open(self.api_file_path, 'r', encoding='utf-8') as f:
             self.api_config = json.load(f)  
 
-        # 初始化数据
         # 声明指令集
         self.command_map = {}
+
         # 指令前缀功能
         self.prefix_en = self.conf.get("prefix").get("enable")
         self.prefix_text = self.conf.get("prefix").get("text")
@@ -52,6 +52,14 @@ class GokApiPlugin(Star):
             logger.info(f"已启用指令前缀功能，前缀为：{self.prefix_text}")
         else:
             logger.info(f"未启用指令前缀功能。")
+
+        # 战绩锐评功能
+        self.comment_en = self.conf.get("comment").get("enable")
+        self.comment_provider = self.conf.get("comment").get("select_provider")
+        if self.comment_en:
+            logger.info(f"锐评功能已经启用，模型为：{self.comment_provider}")
+        else:
+            logger.info(f"未启用锐评功能")
 
         logger.info("GOK 插件初始化完成")
 
@@ -79,6 +87,7 @@ class GokApiPlugin(Star):
         self.ini_command_map()
 
         logger.info("GOK 异步插件初始化完成")
+
 
     async def terminate(self):
         """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
@@ -179,9 +188,9 @@ class GokApiPlugin(Star):
     def ini_command_map(self):
         """初始化指令集"""
         self.command_map = {
-            "王者功能": self.gok_helps,
-            "王者战绩": self.gok_zhanji,
-            "王者资料": self.gok_ziliao,
+            "功能": self.gok_helps,
+            "战绩": self.gok_zhanji,
+            "资料": self.gok_ziliao,
             "上榜战力": self.gok_zhanli,
             "角色查看": self.gok_user_all,
             "角色添加": self.gok_user_add,
@@ -236,6 +245,7 @@ class GokApiPlugin(Star):
     async def T2I_image_and_plain_msg(self, event: AstrMessageEvent, action):
         """战绩定制功能"""
         data = await action()
+
         # 发送渲染战绩图片
         try:
             if data["code"] == 200:
@@ -247,15 +257,16 @@ class GokApiPlugin(Star):
         except Exception as e:
             logger.error(f"功能函数执行错误: {e}")
             await event.send(event.plain_result("猪脑过载，请稍后再试")) 
+
         # 对战绩进行锐评
         try:
-            if data["code"] == 200 and data["comment"]["en"]:
+            if data["code"] == 200 and self.comment_en:
                 # 确定使用模型
-                if data["comment"]["provider"] =="":
+                if self.comment_provider == "":
                     umo = event.unified_msg_origin
                     provider_id = await self.context.get_current_chat_provider_id(umo=umo)
                 else:
-                    provider_id = data["comment"]["provider"]
+                    provider_id = self.comment_provider
 
                 # 模型提示词构建
                 prompt = "请根据下面提供的王者荣耀最近10把的战绩数据，用简短的一句话进行锐评吐槽。"

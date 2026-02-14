@@ -26,11 +26,17 @@ class GOKServer:
         self._sql_db = sqlite
 
         # 获取配置中的 Token
-        self.token = self._config.get("ytapi_token", "")
-        if  self.token == "":
-            logger.info("获取配置token失败，请正确填写token,否则部分功能无法正常使用")
+        self.ytapi_token = self._config.get("ytapi_token", "")
+        if  self.ytapi_token == "":
+            logger.warning("获取应天API令牌配置失败，请正确填写令牌,否则部分功能无法正常使用")
         else:
-            logger.debug(f"获取配置token成功。{self.token}")
+            logger.debug(f"获取应天API令牌成功。{self.ytapi_token}")
+
+        self.nyapi_token = self._config.get("nyapi_token", "")
+        if  self.nyapi_token == "":
+            logger.warning("获取柠柚API令牌配置失败，请正确填写令牌,否则部分功能无法正常使用")
+        else:
+            logger.debug(f"获取柠柚API令牌成功。{self.nyapi_token}")
 
 
     async def close(self):
@@ -342,15 +348,9 @@ class GOKServer:
         return_data = self._init_return_data()
 
         # 获取配置中的 Token
-        token = self._config.get("ytapi_token", "")
-        if  token == "":
+        if  self.ytapi_token == "":
             return_data["msg"] = "系统未配置API访问Token"
             return return_data
-        
-        self.comment_en = self._config.get("comment").get("enable")
-        logger.debug(self.comment_en)
-        self.comment_provider = self._config.get("comment").get("select_provider")
-        logger.debug(self.comment_provider)
         
         # ID查询
         gokid = await self.get_gokid(name)
@@ -360,14 +360,15 @@ class GOKServer:
             return  return_data
         
         #更新参数
-        params = {"id": gokid, "option": option, "key": token}
+        params = {"id": gokid, "option": option, "key": self.ytapi_token}
         
         # 需要提取的字段
         fields = ["gametime","killcnt","deadcnt","assistcnt","gameresult","mvpcnt","losemvp","mapName",
                   "oldMasterMatchScore","newMasterMatchScore","usedTime","winNum","failNum","roleJobName","stars","desc",
                   "gradeGame","heroIcon","godLikeCnt", "firstBlood","hero1TripleKillCnt","hero1UltraKillCnt","hero1RampageCnt","evaluateUrlV3","mvpUrlV3"]
-        
-        
+       
+        # 锐评提取字段
+        comment = ["gametime","killcnt","deadcnt","assistcnt","gameresult","mvpcnt","losemvp","gradeGame"]
 
         # 获取数据
         data: Optional[List[Dict[str, Any]]] = await self._base_request("gok_zhanji", "GET", params=params)       
@@ -378,18 +379,15 @@ class GOKServer:
         # 处理返回数据
         try:
             # 提取锐评数据
-            if self.comment_en:
-                return_data["comment"] = {}
-                comment = ["gametime","killcnt","deadcnt","assistcnt","gameresult","mvpcnt","losemvp","gradeGame"]
-                comments = extract_fields(data['list'], comment)
-                comments = comments[:10]
-                return_data["comment"]["data"] = comments 
-                return_data["comment"]["provider"] = self.comment_provider  
-                return_data["comment"]["en"] = self.comment_en  
+            return_data["comment"] = {} 
+            comments = extract_fields(data['list'], comment)
+            comments = comments[:10]
+            return_data["comment"]["data"] = comments 
 
             # 提取字段
             result = extract_fields(data['list'], fields)
             result = result[:25]
+            
             # 数据处理
             for m in result:
                 minutes = m["usedTime"] // 60
@@ -419,8 +417,7 @@ class GOKServer:
     async def ziliao(self, name: str):
         return_data = self._init_return_data()
         # 获取配置中的 Token
-        token = self._config.get("ytapi_token", "")
-        if  token == "":
+        if  self.ytapi_token == "":
             return_data["msg"] = "系统未配置API访问Token"
             return return_data
         
@@ -432,7 +429,7 @@ class GOKServer:
             return  return_data
 
         #更新参数
-        params = {"id": gokid, "key": token}
+        params = {"id": gokid, "key": self.ytapi_token}
 
         # 获取数据
         data: Optional[List[Dict[str, Any]]] = await self._base_request("gok_ziliao", "GET", params=params, out_key="")   
@@ -465,13 +462,12 @@ class GOKServer:
     async def zhanli(self,hero: str, type: str):
         return_data = self._init_return_data()
         # 获取配置中的 Token
-        token = self._config.get("nyapi_token", "")
-        if  token == "":
+        if  self.nyapi_token == "":
             return_data["msg"] = "系统未配置API访问Token"
             return return_data
 
         #更新参数
-        params = {"hero": hero, "type": type, "apikey": token}
+        params = {"hero": hero, "type": type, "apikey": self.nyapi_token}
 
         # 获取数据
         data: Optional[List[Dict[str, Any]]] = await self._base_request("gok_zhanli", "GET", params=params)   

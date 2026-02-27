@@ -315,7 +315,7 @@ class GOKServer:
         try:
             # 直接返回输入
             int(name)
-            if int(name) >=100000000:
+            if int(name) >=10000000:
                 gokid = name
                 return gokid
             else:

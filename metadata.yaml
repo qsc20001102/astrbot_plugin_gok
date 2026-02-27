@@ -1,6 +1,9 @@
 name: astrbot_plugin_gok 
 display_name: 王者荣耀游戏数据查询工具 
 desc: 王者荣耀的战绩、资料等内容的查询。数据来源王者营地，可查询在游戏内隐藏的战绩，营地也隐藏就不行了。 
-version: v1.0.2 
+version: v1.0.3 
 author: 飞翔大野猪 
 repo: https://github.com/qsc20001102/astrbot_plugin_gok 
+astrbot_version: ">=4.11.0"
+support_platforms:
+  - aiocqhttp

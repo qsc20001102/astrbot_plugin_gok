@@ -172,15 +172,10 @@ class GokPlugin(Star):
             # 帮助
             "功能": self.cmd_helps,
             "帮助": self.cmd_helps,
-            "王者功能": self.cmd_helps,
-            "王者帮助": self.cmd_helps,
             # 查询
             "战绩": self.cmd_battle,
-            "王者战绩": self.cmd_battle,
             "资料": self.cmd_profile,
-            "王者资料": self.cmd_profile,
             "对局": self.cmd_detail,
-            "对局详情": self.cmd_detail,
             # 角色别名
             "角色查看": self.cmd_alias_list,
             # 账号

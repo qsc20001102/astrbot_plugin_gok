@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 本地测试产物
+*.db
+*.db-wal
+*.db-shm
+
+# 营地登录态属于敏感凭证，绝不入库
+camp_auth.json
+data/camp_auth.json
+
+# 扫码登录二维码
+login_qr.*
+*.qr.png
+
+# 编辑器
+.idea/
+.vscode/
+.DS_Store

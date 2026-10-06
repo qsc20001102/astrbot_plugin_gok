@@ -1,327 +1,427 @@
-# pyright: reportOptionalMemberAccess=false
-# pyright: reportCallIssue=false
-# pyright: reportArgumentType=false
+"""王者营地数据查询插件入口。
 
-import json
+数据来源是王者营地官方接口（`kohcamp.qq.com`）：先在插件页面用微信扫码登录，
+再用登录态查询玩家数据，不再依赖任何第三方数据接口。
+
+本文件只负责「装配 + 分发」：协议与业务逻辑在 `core/`，Web 接口在 `core/webui.py`，
+渲染模板在 `templates/`，插件页面在 `pages/`。
+"""
+
+from __future__ import annotations
+
 import inspect
+from collections.abc import AsyncGenerator
 from pathlib import Path
+from sys import maxsize
+from typing import Any
 
+from astrbot.api import AstrBotConfig, logger
+from astrbot.api.event import AstrMessageEvent, filter
+from astrbot.api.star import Context, Star, StarTools, register
 
-from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult, MessageChain
-from astrbot.api.star import Context, Star, register, StarTools
-from astrbot.api import logger
-from astrbot.api import AstrBotConfig
-
+from .core.camp_api import CampDataApi
+from .core.camp_auth import CampAuthStore
+from .core.camp_client import CampClient
+from .core.camp_login import CampLoginManager
+from .core.heroes import hero_repository
+from .core.http import HttpClient
+from .core.message import DEFAULT_COMMENT_PROMPT, MessageSender
+from .core.service import GokService
 from .core.sqlite import AsyncSQLiteDB
-from .core.gok_data import GOKServer
+from .core.storage import GokStorage
+from .core.webui import WebUIService
+
+PLUGIN_NAME = "astrbot_plugin_gok"
 
 
-@register("astrbot_plugin_gok", 
-          "fxdyz", 
-          "通过接口获取王者荣耀游戏数据", 
-          "1.0.3",
-          "https://github.com/qsc20001102/astrbot_plugin_gok.git"
+@register(
+    PLUGIN_NAME,
+    "飞翔大野猪",
+    "通过王者营地官方接口实时查询王者荣耀玩家数据（扫码登录，无需第三方接口）",
+    "2.4.1",
+    "https://github.com/qsc20001102/astrbot_plugin_gok",
 )
-class GokApiPlugin(Star):
-    def __init__(self, context: Context, config: AstrBotConfig):
+class GokPlugin(Star):
+    """王者营地数据查询：战绩 / 资料 / 对局详情 / 战绩锐评，支持角色别名。
+
+    首次使用需在 AstrBot 管理面板的插件页面用微信扫码登录王者营地。
+    """
+
+    def __init__(self, context: Context, config: AstrBotConfig | None = None) -> None:
         super().__init__(context)
-        #获取配置
-        self.conf = config
+        self.conf: Any = config or {}
 
-        # 本地数据存储路径
-        self.local_data_dir = StarTools.get_data_dir("astrbot_plugin_gok")
+        # 指令表先置空，保证 initialize 完成前的消息处理是安全的
+        self.command_map: dict[str, Any] = {}
 
-        # SQLite本地路径
-        self.sqlite_path = Path(self.local_data_dir) /"sqlite.db"
-        logger.info(f"SQLite数据文件路径：{self.sqlite_path}")
+        self._setup_config()
+        self._setup_paths()
+        self._create_components()
 
-        # 读取API配置文件
-        self.api_file_path = Path(__file__).parent / "data" / "api_config.json"
-        with open(self.api_file_path, 'r', encoding='utf-8') as f:
-            self.api_config = json.load(f)  
+        # 注册插件页面接口（页面本体由宿主自动发现 pages/ 目录）
+        self.webui.register(context, PLUGIN_NAME)
 
-        # 声明指令集
-        self.command_map = {}
+        logger.info(
+            "GOK 插件已初始化（前缀：%s · 实时查询不缓存 · 英雄目录 %d 条）",
+            self.prefix_text if self.prefix_enabled else "未启用",
+            hero_repository.count,
+        )
 
-        # 指令前缀功能
-        self.prefix_en = self.conf.get("prefix").get("enable")
-        self.prefix_text = self.conf.get("prefix").get("text")
-        if not self.prefix_text:
-            self.prefix_text = "王者"
-        if self.prefix_en:
-            logger.info(f"已启用指令前缀功能，前缀为：{self.prefix_text}")
-        else:
-            logger.info(f"未启用指令前缀功能。")
+    # ------------------------------------------------------------------ 配置
+    def _setup_config(self) -> None:
+        prefix = self.conf.get("prefix", {}) or {}
+        self.prefix_enabled = bool(prefix.get("enable", False))
+        self.prefix_text = str(prefix.get("text") or "").strip()
+        if self.prefix_enabled and not self.prefix_text:
+            logger.warning("指令前缀已开启但内容为空，将按未启用前缀处理")
+            self.prefix_enabled = False
 
-        # 战绩锐评功能
-        self.comment_en = self.conf.get("comment").get("enable")
-        self.comment_provider = self.conf.get("comment").get("select_provider")
-        if self.comment_en:
-            logger.info(f"锐评功能已经启用，模型为：{self.comment_provider}")
-        else:
-            logger.info(f"未启用锐评功能")
-
-        logger.info("GOK 插件初始化完成")
-
-
-    async def initialize(self):
-        """可选择实现异步的插件初始化方法，当实例化该插件类之后会自动调用该方法。"""
-        try:
-            # sqlite 实例化
-            self.sql_db = AsyncSQLiteDB(self.sqlite_path)
-            await self.sql_db.connect()
-            await self.sql_db.execute("""
-            CREATE TABLE IF NOT EXISTS users(
-                gokid INTEGER,
-                name TEXT                          
+        comment = self.conf.get("comment", {}) or {}
+        self.comment_enabled = bool(comment.get("enable", False))
+        self.comment_provider = str(comment.get("select_provider") or "").strip()
+        self.comment_prompt = str(
+            comment.get("prompt") or DEFAULT_COMMENT_PROMPT
+        ).strip()
+        if self.comment_enabled:
+            logger.info(
+                "战绩锐评已启用（模型：%s）", self.comment_provider or "会话默认模型"
             )
-            """)
-            # 王者功能 实例化
-            self.gokfun = GOKServer(self.api_config, self.conf, self.sql_db)
 
-        except Exception as e:
-            logger.error(f"功能模块初始化失败: {e}")
+        self.default_limit = self._int_config("battle_limit", 10, minimum=1, maximum=25)
+        self._account_cooldown = self._int_config("account_cooldown", 300, minimum=0)
+        self.request_timeout = float(self._int_config("request_timeout", 15, minimum=5))
+        self.tls_verify = self.conf.get("tls_verify", True) is not False
+        self.query_output = (
+            "text"
+            if self.conf.get("query_output", "图片") in ("文本", "text")
+            else "image"
+        )
+
+    def _int_config(
+        self, key: str, default: int, minimum: int = 0, maximum: int | None = None
+    ) -> int:
+        try:
+            value = int(self.conf.get(key, default))
+        except (TypeError, ValueError):
+            return default
+        value = max(minimum, value)
+        return value if maximum is None else min(maximum, value)
+
+    def _setup_paths(self) -> None:
+        # 可写数据目录：data/plugin_data/astrbot_plugin_gok
+        self.data_dir = Path(StarTools.get_data_dir(PLUGIN_NAME))
+        self.plugin_dir = Path(__file__).resolve().parent
+        self.db_path = self.data_dir / "gok.db"
+        self.auth_path = self.data_dir / "camp_auth.json"
+        logger.debug("插件数据目录：%s", self.data_dir)
+
+    def _create_components(self) -> None:
+        """手工装配依赖（构造函数注入）。"""
+        self.db = AsyncSQLiteDB(self.db_path)
+        self.storage = GokStorage(self.db)
+        self.auth_store = CampAuthStore(self.auth_path, self._account_cooldown)
+        self.http = HttpClient(timeout=self.request_timeout, verify_ssl=self.tls_verify)
+        self.client = CampClient(self.http, self.auth_store)
+        self.api = CampDataApi(self.client)
+        self.login = CampLoginManager(self.http, auth_store=self.auth_store)
+        self.sender = MessageSender(self.conf.get("image", {}) or {}, plugin=self)
+        self.service = GokService(
+            self.conf,
+            self.storage,
+            self.auth_store,
+            self.api,
+            self.login,
+        )
+        self.webui = WebUIService(self.service)
+
+    # ------------------------------------------------------------------ 生命周期
+    async def initialize(self) -> None:
+        """实例化后由框架调用：连库、建表、补齐登录态字段。"""
+        try:
+            await self.db.connect()
+            await self.storage.initialize()
+            await self.auth_store.ensure_user_keys()
+        except Exception:
+            logger.exception("GOK 插件初始化失败")
             raise
 
-        # 指令集
-        self.ini_command_map()
+        self._ini_command_map()
 
-        logger.info("GOK 异步插件初始化完成")
+        summary = await self.auth_store.summary()
+        if summary["logged_in"]:
+            logger.info("营地登录态就绪：%s", summary["nickname"])
+        else:
+            logger.warning(
+                "尚未登录王者营地，请在 AstrBot 管理面板 → 插件 → 王者营地查询 页面扫码登录"
+            )
+        logger.info("GOK 异步初始化完成")
 
-
-    async def terminate(self):
-        """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
-        if self.gokfun:
-            await self.gokfun.close()
-            self.gokfun = None
-
-        if self.sql_db:
-            await self.sql_db.close()
-            self.sql_db = None
-
+    async def terminate(self) -> None:
+        """插件卸载/停用时释放资源。"""
+        if getattr(self, "http", None) is not None:
+            await self.http.close()
+            self.http = None
+        if getattr(self, "db", None) is not None:
+            await self.db.close()
+            self.db = None
         logger.info("GOK 插件已卸载/停用")
 
+    # ------------------------------------------------------------------ 指令表
+    def _ini_command_map(self) -> None:
+        self.command_map = {
+            # 帮助
+            "功能": self.cmd_helps,
+            "帮助": self.cmd_helps,
+            "王者功能": self.cmd_helps,
+            "王者帮助": self.cmd_helps,
+            # 查询
+            "战绩": self.cmd_battle,
+            "王者战绩": self.cmd_battle,
+            "资料": self.cmd_profile,
+            "王者资料": self.cmd_profile,
+            "对局": self.cmd_detail,
+            "对局详情": self.cmd_detail,
+            # 角色别名
+            "角色查看": self.cmd_alias_list,
+            # 账号
+            "营地登录": self.cmd_login,
+            "营地账号": self.cmd_accounts,
+        }
 
+    # ------------------------------------------------------------------ 消息解析
     def parse_message(self, text: str) -> list[str] | None:
-        """消息解析"""
-        text = text.strip()
+        """按前缀配置切分消息；启用前缀时不匹配的消息直接忽略。"""
+        text = (text or "").strip()
         if not text:
             return None
-
-        # 前缀模式
-        if self.prefix_en:
+        if self.prefix_enabled:
             prefix = self.prefix_text
             if text.startswith(prefix):
-                text = text[len(prefix):].strip()
+                text = text[len(prefix) :].strip()
             else:
-                # 非前缀消息，直接忽略
                 return None
+        return text.split() or None
 
-        return text.split()
+    def resolve_command(
+        self, event: AstrMessageEvent
+    ) -> tuple[str, list[str], Any] | None:
+        """依次尝试处理后的文本与平台原始文本，兼容被其它插件改写的情况。"""
+        seen: list[str] = []
+        primary = getattr(event, "message_str", "") or ""
+        if isinstance(primary, str) and primary.strip():
+            seen.append(primary.strip())
 
+        message_obj = getattr(event, "message_obj", None)
+        raw = getattr(message_obj, "message_str", "") if message_obj else ""
+        if isinstance(raw, str) and raw.strip() and raw.strip() not in seen:
+            seen.append(raw.strip())
 
-    async def _call_with_auto_args(self, handler, event: AstrMessageEvent, args: list[str]):
-        """指令执行函数"""
-        sig = inspect.signature(handler)
-        params = list(sig.parameters.values())
+        for text in seen:
+            parts = self.parse_message(text)
+            if not parts:
+                continue
+            handler = self.command_map.get(parts[0])
+            if handler:
+                return parts[0], parts[1:], handler
+        return None
 
-        call_args = []
+    # ------------------------------------------------------------------ 参数注入
+    @staticmethod
+    async def _call_with_auto_args(
+        handler: Any, event: AstrMessageEvent, args: list[str]
+    ) -> Any:
+        """按函数签名注入 event 与命令行参数，并按注解做类型转换。"""
+        call_args: list[Any] = []
         arg_index = 0
 
-        for p in params:
-            if p.name == "self":
+        for param in inspect.signature(handler).parameters.values():
+            if param.name == "self":
                 continue
-
-            if p.name == "event":
+            if param.name == "event":
                 call_args.append(event)
+                continue
+            if param.kind is inspect.Parameter.VAR_POSITIONAL:
+                call_args.extend(args[arg_index:])
+                arg_index = len(args)
                 continue
 
             if arg_index < len(args):
-                raw = args[arg_index]
+                raw_value = args[arg_index]
                 arg_index += 1
                 try:
-                    if p.annotation is int:
-                        call_args.append(int(raw))
-                    elif p.annotation is float:
-                        call_args.append(float(raw))
+                    if param.annotation in (int, "int"):
+                        call_args.append(int(raw_value))
+                    elif param.annotation in (float, "float"):
+                        call_args.append(float(raw_value))
                     else:
-                        call_args.append(raw)
-                except Exception:
-                    call_args.append(p.default)
+                        call_args.append(raw_value)
+                except (TypeError, ValueError):
+                    if param.default is inspect.Parameter.empty:
+                        raise ValueError(
+                            f"参数「{param.name}」格式不正确：{raw_value}"
+                        ) from None
+                    call_args.append(param.default)
+            elif param.default is not inspect.Parameter.empty:
+                call_args.append(param.default)
             else:
-                if p.default is not inspect._empty:
-                    call_args.append(p.default)
-                else:
-                    raise ValueError(f"缺少参数: {p.name}")
+                raise ValueError(f"缺少参数「{param.name}」，请输入「功能」查看用法")
 
-        # 只允许 coroutine
         return await handler(*call_args)
-    
 
-    @filter.event_message_type(filter.EventMessageType.ALL)
-    async def on_all_message(self, event: AstrMessageEvent):
-        """解析所有消息"""
+    # ------------------------------------------------------------------ 消息入口
+    @filter.event_message_type(filter.EventMessageType.ALL, priority=maxsize - 10)
+    async def on_all_message(
+        self, event: AstrMessageEvent
+    ) -> AsyncGenerator[Any, None]:
+        """最低优先级兜底：前面的插件与默认链路都不处理时才认领。"""
         if not self.command_map:
-            logger.debug("插件尚未初始化完成，忽略消息")
-            return
-        parts = self.parse_message(event.message_str)
-        if not parts:
-            logger.debug("未触发指令，忽略消息")
             return
 
-        cmd, *args = parts
-        handler = self.command_map.get(cmd)
-        if not handler:
-            logger.debug("指令函数为空，忽略消息")
+        resolved = self.resolve_command(event)
+        if not resolved:
             return
 
+        command, args, handler = resolved
+        # 认领消息，避免其它插件重复响应
+        event.stop_event()
+        # 注意宿主语义：这里的 True 表示「禁止默认 LLM 请求」（默认值是 False），
+        # 避免本插件的查询结果又被默认模型回复一遍。
+        event.should_call_llm(True)
+
         try:
-            event.stop_event()
-            ret = await self._call_with_auto_args(handler, event, args)
-            if ret is not None:
-                yield ret
-        except Exception as e:
-            logger.exception(f"指令执行失败: {cmd}, error={e}")
-            yield event.plain_result("参数错误或执行失败")
+            result = await self._call_with_auto_args(handler, event, args)
+            if result is not None:
+                yield result
+        except ValueError as exc:
+            await event.send(event.plain_result(str(exc)))
+        except Exception as exc:  # noqa: BLE001 - 单条指令失败不应影响后续消息
+            logger.exception("指令执行失败：%s（%s）", command, type(exc).__name__)
+            await event.send(event.plain_result("处理失败，请稍后再试"))
 
+    # ------------------------------------------------------------------ 指令实现
+    async def cmd_helps(self, event: AstrMessageEvent) -> None:
+        """功能说明。"""
+        prefix = self.prefix_text if self.prefix_enabled else ""
+        text = (
+            "王者营地查询\n"
+            f"{prefix}战绩 营地ID/角色名 [场数]：最近战绩\n"
+            f"{prefix}资料 营地ID/角色名：角色与赛季资料\n"
+            f"{prefix}对局 营地ID/角色名 [序号]：双方对局详情与出装\n"
+            f"{prefix}角色查看：查看已保存的角色名称与ID\n"
+            f"{prefix}功能：查看本说明\n"
+            f"{prefix}营地登录 / {prefix}营地账号：查看账号状态\n"
+            "首次查询请在插件管理页微信扫码登录；ID查询成功会自动保存角色名称。\n"
+            "战绩、资料、对局可在插件配置中选择图片或文本输出。"
+        )
+        if self.comment_enabled:
+            text += "\n已开启自动锐评：战绩发送成功后会追加一条点评。"
+        await event.send(event.plain_result(text))
 
-    def ini_command_map(self):
-        """初始化指令集"""
-        self.command_map = {
-            "功能": self.gok_helps,
-            "战绩": self.gok_zhanji,
-            "资料": self.gok_ziliao,
-            "上榜战力": self.gok_zhanli,
-            "角色查看": self.gok_user_all,
-            "角色添加": self.gok_user_add,
-            "角色修改": self.gok_user_update,
-            "角色删除": self.gok_user_delete,
-            "角色查询": self.gok_user_select
-        }
+    async def cmd_battle(
+        self, event: AstrMessageEvent, name: str = "", limit: int = 0
+    ) -> None:
+        """战绩 [营地ID/别名] [场数]。"""
+        if not name:
+            await event.send(
+                event.plain_result(
+                    "请提供营地 ID 或角色别名，例如：战绩 123456789\n"
+                    "使用营地 ID 查询成功后会自动保存游戏角色名称。"
+                )
+            )
+            return
+        result = await self.sender.run(
+            event,
+            lambda: self.service.battle_report(name, limit=limit or self.default_limit),
+            style=self.query_output,
+        )
+        if self.comment_enabled and result and result.get("code") == 200:
+            await self.sender.comment_battle(
+                event,
+                result,
+                context=self.context,
+                provider_id=self.comment_provider,
+                instructions=self.comment_prompt,
+            )
 
+    async def cmd_profile(self, event: AstrMessageEvent, name: str = "") -> None:
+        """资料 [营地ID/别名]。"""
+        if not name:
+            await event.send(
+                event.plain_result("请提供营地 ID 或角色别名，例如：资料 123456789")
+            )
+            return
+        await self.sender.run(
+            event,
+            lambda: self.service.player_overview(name),
+            style=self.query_output,
+        )
 
-    async def plain_msg(self, event: AstrMessageEvent, action):
-        """最终将数据整理成文本发送"""
-        data= await action()
-        try:
-            if data["code"] == 200:
-                await event.send( event.plain_result(data["data"]))
+    async def cmd_detail(
+        self, event: AstrMessageEvent, name: str = "", index: int = 1
+    ) -> None:
+        """对局 [营地ID/别名] [序号]。"""
+        if not name:
+            await event.send(
+                event.plain_result("请提供营地 ID 或角色别名，例如：对局 123456789 1")
+            )
+            return
+        await self.sender.run(
+            event,
+            lambda: self.service.battle_detail(name, index),
+            style=self.query_output,
+        )
+
+    async def cmd_alias_list(self, event: AstrMessageEvent) -> None:
+        """角色查看。"""
+        await self.sender.plain(event, await self.service.list_aliases())
+
+    async def cmd_login(self, event: AstrMessageEvent) -> None:
+        """营地登录：查看登录状态与扫码入口。"""
+        summary = await self.service.account_summary()
+        if summary["logged_in"]:
+            await event.send(
+                event.plain_result(
+                    "王者营地登录态正常\n"
+                    f"账号：{summary['nickname'] or summary['user_id']}\n"
+                    f"可用账号：{summary['available_count']}/{summary['count']}\n"
+                    "如需更换账号，请到 AstrBot 管理面板 → 插件 → 王者营地查询 页面扫码。"
+                )
+            )
+            return
+        await event.send(
+            event.plain_result(
+                "尚未登录王者营地，或登录态已失效；也可能账号都在冷却中。\n"
+                "请打开 AstrBot 管理面板 → 插件 → 王者营地查询，"
+                "点击「获取登录二维码」并用微信扫码登录。"
+            )
+        )
+
+    async def cmd_accounts(self, event: AstrMessageEvent) -> None:
+        """营地账号：列出已登录账号与冷却状态。"""
+        summary = await self.service.account_summary()
+        accounts = summary.get("accounts") or []
+        if not accounts:
+            await event.send(
+                event.plain_result(
+                    "还没有登录任何营地账号，请到插件页面扫码登录后再试。"
+                )
+            )
+            return
+
+        lines = [
+            f"已登录营地账号 {summary['count']} 个（可用 {summary['available_count']} 个）"
+        ]
+        for item in accounts:
+            if item.get("auth_invalid"):
+                state = "登录态已失效，请重新扫码"
+            elif not item.get("ready"):
+                state = "登录态不完整，建议重新扫码"
+            elif item.get("available"):
+                state = "可用"
             else:
-                await event.send(event.plain_result(data["msg"])) 
-        except Exception as e:
-            logger.error(f"功能函数执行错误: {e}")
-            await event.send(event.plain_result("猪脑过载，请稍后再试")) 
-
-
-    async def T2I_image_msg(self, event: AstrMessageEvent, action):
-        """最终将数据渲染成图片发送"""
-        data = await action()
-        try:
-            if data["code"] == 200:
-                url = await self.html_render(data["temp"], data["data"], options={})
-                await event.send(event.image_result(url)) 
-            else:
-                await event.send(event.plain_result(data["msg"])) 
-
-        except Exception as e:
-            logger.error(f"功能函数执行错误: {e}")
-            await event.send(event.plain_result("猪脑过载，请稍后再试")) 
-
-
-    async def image_msg(self, event: AstrMessageEvent, action):
-        """最终将数据整理成图片发送"""
-        data = await action()
-        try:
-            if data["code"] == 200:
-                await event.send(event.image_result(data["data"])) 
-            else:
-                await event.send(event.plain_result(data["msg"])) 
-
-        except Exception as e:
-            logger.error(f"功能函数执行错误: {e}")
-            await event.send(event.plain_result("猪脑过载，请稍后再试")) 
-
-
-    async def T2I_image_and_plain_msg(self, event: AstrMessageEvent, action):
-        """战绩定制功能"""
-        data = await action()
-
-        # 发送渲染战绩图片
-        try:
-            if data["code"] == 200:
-                url = await self.html_render(data["temp"], data["data"], options={})
-                await event.send(event.image_result(url)) 
-            else:
-                await event.send(event.plain_result(data["msg"])) 
-
-        except Exception as e:
-            logger.error(f"功能函数执行错误: {e}")
-            await event.send(event.plain_result("猪脑过载，请稍后再试")) 
-
-        # 对战绩进行锐评
-        try:
-            if data["code"] == 200 and self.comment_en:
-                # 确定使用模型
-                if self.comment_provider == "":
-                    umo = event.unified_msg_origin
-                    provider_id = await self.context.get_current_chat_provider_id(umo=umo)
-                else:
-                    provider_id = self.comment_provider
-
-                # 模型提示词构建
-                prompt = "请根据下面提供的王者荣耀最近10把的战绩数据，用简短的一句话进行锐评吐槽。"
-                prompt += f"这是战绩列表\n{data['comment']['data']}\n"
-                prompt += f"gametime 字段 对局开始时间\n"
-                prompt += f"killcnt 字段 击杀数\n"
-                prompt += f"deadcnt 字段 死亡数\n"
-                prompt += f"assistcnt 字段 助攻数\n"
-                prompt += f"gameresult 字段 1代表胜利 2代表失败 3代表平局\n"
-                prompt += f"mvpcnt 字段 1代表是胜利方MVP 0表示不是\n"
-                prompt += f"losemvp 字段 1代表是失败方MVP 0表示不是\n"
-                prompt += f"gradeGame 字段 系统给的评分，满分16分\n"
-
-                # 调用模型
-                llm_resp = await self.context.llm_generate(chat_provider_id=provider_id, prompt=prompt)
-                # 发送消息
-                await event.send(event.plain_result(llm_resp.completion_text)) 
-
-        except Exception as e:
-            logger.error(f"功能函数执行错误: {e}")
-            await event.send(event.plain_result("猪脑过载，请稍后再试")) 
-
-
-    async def gok_helps(self, event: AstrMessageEvent):
-        """王者功能"""
-        return await self.T2I_image_msg(event, self.gokfun.helps)
-    
-    async def gok_zhanji(self, event: AstrMessageEvent,name: str,option:str = 0):
-        """王者战绩"""
-        return await self.T2I_image_and_plain_msg(event, lambda: self.gokfun.zhanji(name ,option))
-    
-    async def gok_ziliao(self, event: AstrMessageEvent,name: str):
-        """王者资料"""
-        return await self.T2I_image_msg(event, lambda: self.gokfun.ziliao(name))
-    
-    async def gok_zhanli(self, event: AstrMessageEvent, hero: str, type: str = "aqq"):
-        """英雄战力 名称 大区"""
-        return await self.plain_msg(event, lambda: self.gokfun.zhanli(hero,type))
-    
-    async def gok_user_all(self, event: AstrMessageEvent):
-        """角色查看"""
-        return await self.T2I_image_msg(event, self.gokfun.all)
-    
-    async def gok_user_add(self, event: AstrMessageEvent, gokid: int, name: str):
-        """角色添加 王者营地ID 名称"""
-        return await self.plain_msg(event, lambda: self.gokfun.add(gokid,name))
-    
-    async def gok_user_update(self, event: AstrMessageEvent, gokid: int, name: str):
-        """角色修改 王者营地ID 名称"""
-        return await self.plain_msg(event, lambda: self.gokfun.update(gokid,name))
-    
-    async def gok_user_delete(self, event: AstrMessageEvent, gokid:int):
-        """角色删除 王者营地ID"""
-        return await self.plain_msg(event, lambda: self.gokfun.delete(gokid))
-    
-    async def gok_user_select(self, event: AstrMessageEvent, gokid):
-        """角色查询 王者营地ID"""
-        return await self.T2I_image_msg(event, lambda: self.gokfun.select(gokid))
+                remaining = int(item.get("cooled_remaining") or 0)
+                state = f"冷却中（剩余 {remaining // 60} 分 {remaining % 60} 秒）"
+            lines.append(
+                f"· {item.get('nickname')}（ID {item.get('user_id')}）— {state}"
+            )
+        await event.send(event.plain_result("\n".join(lines)))

@@ -3,49 +3,127 @@
         "description": "指令前缀",
         "type": "object",
         "items": {
-        "enable": {
-            "description": "是否启用",
-            "type": "bool",
-            "default": true,
-            "hint": "是否启用指令前缀检查功能"
+            "enable": {
+                "description": "是否启用",
+                "type": "bool",
+                "default": false,
+                "hint": "开启后只有在指令前加上前缀才会触发，可避免与其他插件的指令冲突。"
+            },
+            "text": {
+                "description": "前缀内容",
+                "type": "string",
+                "default": "王者",
+                "hint": "例如填「王者」则需发送「王者战绩 123456789」。开启但留空时按未启用处理。"
+            }
+        }
+    },
+    "query_output": {
+        "description": "查询指令输出方式",
+        "type": "string",
+        "options": ["图片", "文本"],
+        "default": "图片",
+        "hint": "仅影响「战绩」「资料」「对局」及其同义指令。图片使用 AstrBot 自带 HTML 渲染；文本只展示重要信息。「功能」「角色查看」固定输出文本。"
+    },
+    "battle_limit": {
+        "description": "战绩默认显示场数",
+        "type": "int",
+        "default": 10,
+        "slider": {
+            "min": 1,
+            "max": 25,
+            "step": 1
         },
-        "text": {
-            "description": "前缀内容",
-            "type": "string",
-            "default": "王者",
-            "hint": "为了避免和其他插件的指令冲突可以增加指令的前缀，为空默认值为王者。"
-        }
-        }
+        "hint": "「战绩」指令未带场数参数时使用；单次最多显示 25 场。"
     },
-    "ytapi_token": {
-        "description": "应天API 令牌",
-        "type": "string",
-        "default": "",
-        "hint": "前往https://api.t1qq.com 注册并创建令牌（免费）。"
+    "account_cooldown": {
+        "description": "账号冷却时间（秒）",
+        "type": "int",
+        "default": 300,
+        "slider": {
+            "min": 0,
+            "max": 1800,
+            "step": 30
+        },
+        "hint": "某个营地账号触发频控后暂时停用的时长；期间若配置了多个账号会自动切换到其它账号。"
     },
-    "nyapi_token": {
-        "description": "柠柚API 令牌",
-        "type": "string",
-        "default": "",
-        "hint": "前往https://api.nycnm.cn 注册并创建令牌（免费）。"
+    "request_timeout": {
+        "description": "接口超时（秒）",
+        "type": "int",
+        "default": 15,
+        "slider": {
+            "min": 5,
+            "max": 60,
+            "step": 1
+        },
+        "hint": "单次请求营地接口的最长等待时间，网络较差时可适当调大。"
+    },
+    "tls_verify": {
+        "description": "TLS 证书校验",
+        "type": "bool",
+        "default": true,
+        "hint": "建议保持开启；仅在受信任的调试环境下才临时关闭。"
     },
     "comment": {
-        "description": "战绩锐评",
+        "description": "战绩自动锐评",
         "type": "object",
         "items": {
-        "enable": {
-            "description": "是否启用",
-            "type": "bool",
-            "default": false,
-            "hint": "是否启用战绩锐评功能"
-        },
-        "select_provider": {
-            "description": "锐评模型",
-            "type": "string",
-            "hint": "锐评战绩的模型，留空使用会话默认模型",
-            "default": "",
-            "_special": "select_provider"
+            "enable": {
+                "description": "是否启用",
+                "type": "bool",
+                "default": false,
+                "hint": "开启后「战绩」指令成功发送图片或文本后，自动追加一条模型锐评。"
+            },
+            "prompt": {
+                "description": "锐评提示词",
+                "type": "text",
+                "default": "请根据提供的王者荣耀最近对局数据，用简短的一句话进行锐评吐槽。要口语化、有梗，不要复述数据。",
+                "hint": "修改点评的风格、语气和长度。实际展示的对局数据会自动附在提示词后，无需填写占位符。"
+            },
+            "select_provider": {
+                "description": "锐评模型",
+                "type": "string",
+                "default": "",
+                "_special": "select_provider",
+                "hint": "留空时使用当前会话的默认对话模型。"
+            }
         }
+    },
+    "image": {
+        "description": "图片渲染",
+        "type": "object",
+        "items": {
+            "format": {
+                "description": "输出格式",
+                "type": "string",
+                "options": [
+                    "jpeg",
+                    "png"
+                ],
+                "default": "jpeg",
+                "hint": "JPEG 体积更小；PNG 无损但文件更大。"
+            },
+            "device_scale_factor": {
+                "description": "渲染清晰度",
+                "type": "string",
+                "options": [
+                    "1.0",
+                    "1.3",
+                    "1.8"
+                ],
+                "default": "1.3",
+                "hint": "数值越高越清晰，同时图片更大、渲染更慢。"
+            },
+            "jpeg_quality": {
+                "description": "JPEG 质量",
+                "type": "int",
+                "default": 100,
+                "slider": {
+                    "min": 1,
+                    "max": 100,
+                    "step": 1
+                },
+                "hint": "仅在输出格式为 JPEG 时生效。"
+            }
         }
     }
 }

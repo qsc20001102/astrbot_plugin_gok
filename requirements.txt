@@ -1,1 +1,4 @@
-aiosqlite
+aiohttp>=3.9
+aiosqlite>=0.19
+aiofiles>=23.0
+cryptography>=41.0

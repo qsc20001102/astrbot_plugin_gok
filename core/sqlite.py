@@ -1,71 +1,148 @@
-# pyright: reportOptionalMemberAccess=false
+"""异步 SQLite 封装：单连接 + 任务可重入串行锁 + 嵌套事务。
+
+同一插件的多个协程会共用一条连接，aiosqlite 的连接本身不是并发安全的，
+因此这里用「锁 + 同任务可重入」的方式保证串行；多步写入走 `transaction()`
+以获得原子性与异常回滚。
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from collections.abc import AsyncIterator, Iterable, Sequence
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any
 
 import aiosqlite
-from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+__all__ = ["AsyncSQLiteDB"]
 
 
 class AsyncSQLiteDB:
-    def __init__(self, db_path: str = "data.db"):
-        self.db_path = db_path
-        self.conn: Optional[aiosqlite.Connection] = None
+    """轻量异步 SQLite 封装。"""
 
-    # ======================
-    # 生命周期
-    # ======================
+    def __init__(self, db_path: str | Path) -> None:
+        self.db_path = str(db_path)
+        self.conn: aiosqlite.Connection | None = None
+        self._lock = asyncio.Lock()
+        self._owner: asyncio.Task | None = None
+        self._depth = 0
 
-    async def connect(self):
-        self.conn = await aiosqlite.connect(self.db_path)
-        self.conn.row_factory = aiosqlite.Row
+    # ------------------------------------------------------------------ 生命周期
+    async def connect(self) -> None:
+        async with self._serialized():
+            if self.conn is None:
+                Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+                self.conn = await aiosqlite.connect(self.db_path)
+                self.conn.row_factory = aiosqlite.Row
+                await self.conn.execute("PRAGMA journal_mode=WAL")
+                await self.conn.execute("PRAGMA foreign_keys=ON")
+                await self.conn.commit()
 
-    async def close(self):
-        if self.conn:
-            await self.conn.close()
+    async def close(self) -> None:
+        async with self._serialized():
+            if self.conn is not None:
+                await self.conn.close()
+                self.conn = None
 
-    # ======================
-    # 基础执行
-    # ======================
+    @property
+    def connected(self) -> bool:
+        return self.conn is not None
 
-    async def execute(self, sql: str, params: Tuple = ()):
-        async with self.conn.execute(sql, params):
-            await self.conn.commit()
+    # ------------------------------------------------------------------ 串行/事务
+    @asynccontextmanager
+    async def _serialized(self) -> AsyncIterator[None]:
+        """同任务可重入的串行区；跨任务互斥。"""
+        task = asyncio.current_task()
+        if self._owner is task:
+            yield
+            return
+        async with self._lock:
+            self._owner = task
+            try:
+                yield
+            finally:
+                self._owner = None
 
-    async def fetch_one(self, sql: str, params: Tuple = ()) -> Optional[Dict[str, Any]]:
-        async with self.conn.execute(sql, params) as cursor:
-            row = await cursor.fetchone()
-            return dict(row) if row else None
+    @asynccontextmanager
+    async def transaction(self) -> AsyncIterator[None]:
+        """事务上下文；嵌套时自动使用 SAVEPOINT。"""
+        if self.conn is None:
+            raise RuntimeError("数据库尚未连接")
+        async with self._serialized():
+            nested = self._depth > 0
+            savepoint = f"gok_sp_{self._depth}"
+            self._depth += 1
+            try:
+                if nested:
+                    await self.conn.execute(f"SAVEPOINT {savepoint}")
+                else:
+                    await self.conn.execute("BEGIN IMMEDIATE")
+                yield
+                if nested:
+                    await self.conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+                else:
+                    await self.conn.commit()
+            except BaseException:
+                try:
+                    if nested:
+                        await self.conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                        await self.conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+                    else:
+                        await self.conn.rollback()
+                except Exception:  # noqa: BLE001 - 回滚失败不应掩盖原始异常
+                    logger.exception("事务回滚失败")
+                raise
+            finally:
+                self._depth -= 1
 
-    async def fetch_all(self, sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
-        async with self.conn.execute(sql, params) as cursor:
-            rows = await cursor.fetchall()
-            return [dict(r) for r in rows]
+    # ------------------------------------------------------------------ 执行
+    async def execute(self, sql: str, params: Sequence[Any] = ()) -> None:
+        async with self.transaction():
+            await self._require_conn().execute(sql, tuple(params))
 
-    # ======================
-    # CRUD
-    # ======================
+    async def execute_many(self, sql: str, rows: Iterable[Sequence[Any]]) -> None:
+        data = [tuple(row) for row in rows]
+        if not data:
+            return
+        async with self.transaction():
+            await self._require_conn().executemany(sql, data)
 
-    async def insert(self, table: str, data: Dict[str, Any]):
-        keys = ", ".join(data.keys())
-        placeholders = ", ".join(["?"] * len(data))
-        sql = f"INSERT INTO {table} ({keys}) VALUES ({placeholders})"
-        await self.execute(sql, tuple(data.values()))
+    async def execute_insert(self, sql: str, params: Sequence[Any] = ()) -> int:
+        async with self.transaction():
+            cursor = await self._require_conn().execute(sql, tuple(params))
+            return int(cursor.lastrowid or 0)
 
-    async def update(self, table: str, data: Dict[str, Any], where: str, params: Tuple):
-        set_clause = ", ".join([f"{k}=?" for k in data.keys()])
-        sql = f"UPDATE {table} SET {set_clause} WHERE {where}"
-        await self.execute(sql, tuple(data.values()) + params)
+    async def fetch_one(
+        self, sql: str, params: Sequence[Any] = ()
+    ) -> dict[str, Any] | None:
+        async with self._serialized():
+            cursor = await self._require_conn().execute(sql, tuple(params))
+            async with cursor:
+                row = await cursor.fetchone()
+        return dict(row) if row else None
 
-    async def delete(self, table: str, where: str, params: Tuple):
-        sql = f"DELETE FROM {table} WHERE {where}"
-        await self.execute(sql, params)
+    async def fetch_all(
+        self, sql: str, params: Sequence[Any] = ()
+    ) -> list[dict[str, Any]]:
+        async with self._serialized():
+            cursor = await self._require_conn().execute(sql, tuple(params))
+            async with cursor:
+                rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
 
-    async def select_one(self, table: str, where: str = "", params: Tuple = ()):
-        sql = f"SELECT * FROM {table}"
-        if where:
-            sql += f" WHERE {where}"
-        return await self.fetch_one(sql, params)
+    async def fetch_value(
+        self, sql: str, params: Sequence[Any] = (), default: Any = None
+    ) -> Any:
+        row = await self.fetch_one(sql, params)
+        if not row:
+            return default
+        return next(iter(row.values()), default)
 
-    async def select_all(self, table: str, where: str = "", params: Tuple = ()):
-        sql = f"SELECT * FROM {table}"
-        if where:
-            sql += f" WHERE {where}"
-        return await self.fetch_all(sql, params)
+    def _require_conn(self) -> aiosqlite.Connection:
+        if self.conn is None:
+            raise RuntimeError("数据库尚未连接，请先调用 connect()")
+        return self.conn

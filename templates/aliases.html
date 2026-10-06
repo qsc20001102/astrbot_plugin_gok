@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>角色列表</title>
+<style>
+  :root {
+    --gold: #e8c37a;
+    --gold-dim: #b99a5b;
+    --text: #e8edf7;
+    --muted: #93a0bb;
+    --panel: #182034;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 620px;
+    background: linear-gradient(160deg, #0f1523 0%, #131b2c 100%);
+    color: var(--text);
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    padding: 20px;
+  }
+  .head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .head .bar { width: 5px; height: 26px; background: linear-gradient(180deg, var(--gold), #8a6d34); border-radius: 3px; }
+  .head h1 { font-size: 19px; }
+  .head .n { margin-left: auto; font-size: 12px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 10px; overflow: hidden; }
+  thead th {
+    background: #1c2438; color: var(--muted); font-size: 11px;
+    padding: 10px 12px; text-align: left; font-weight: 600; letter-spacing: .5px;
+  }
+  tbody td { padding: 10px 12px; font-size: 13px; border-top: 1px solid #212b42; }
+  tbody tr:nth-child(even) { background: #1a2233; }
+  .idx { color: var(--muted); width: 40px; }
+  .alias { color: var(--gold); font-weight: 600; }
+  .id { font-family: Consolas, monospace; color: #a9c6ff; }
+  .foot { margin-top: 12px; text-align: right; font-size: 11px; color: #6b7893; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <div class="bar"></div>
+    <h1>{% if data.keyword %}角色查询：{{ data.keyword }}{% else %}已保存角色{% endif %}</h1>
+    <div class="n">共 {{ data.list | length }} 个</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th class="idx">#</th><th>显示名称</th><th>游戏角色名</th><th>营地 ID</th></tr>
+    </thead>
+    <tbody>
+      {% for row in data.list %}
+      <tr>
+        <td class="idx">{{ loop.index }}</td>
+        <td class="alias">{{ row.name }}</td>
+        <td>{{ row.role_name or row.name }}</td>
+        <td class="id">{{ row.gokid }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="foot">数据时间：{{ data_time }}</div>
+</body>
+</html>

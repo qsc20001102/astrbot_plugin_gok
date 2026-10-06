@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>王者营地查询 · 控制台</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="logo">王</span>
+          <div>
+            <h1>王者营地查询</h1>
+            <p class="sub">扫码登录 · 账号管理 · 玩家数据</p>
+          </div>
+        </div>
+        <button id="btn-refresh" class="btn ghost" type="button">刷新数据</button>
+      </header>
+
+      <nav class="tabs">
+        <button class="tab active" data-tab="login" type="button">扫码登录</button>
+        <button class="tab" data-tab="query" type="button">玩家查询</button>
+        <button class="tab" data-tab="aliases" type="button">角色名称映射</button>
+      </nav>
+
+      <!-- ---------------------------------------------------------- 扫码登录 -->
+      <section class="panel active" id="panel-login">
+        <div class="grid-2">
+          <div class="card">
+            <h2>微信扫码登录营地</h2>
+            <p class="hint">
+              用<strong>微信</strong>扫描二维码并在手机上确认，即可让插件获得营地数据访问权限。
+              登录态会保存在插件数据目录，可添加多个账号，触发频控时自动切换。
+            </p>
+            <div class="qr-area">
+              <div class="qr-box" id="qr-box">
+                <div class="qr-placeholder" id="qr-placeholder">
+                  <span>点击下方按钮获取二维码</span>
+                </div>
+                <img id="qr-image" alt="登录二维码" hidden />
+              </div>
+              <div class="qr-status">
+                <div class="status-line" id="qr-status">未开始</div>
+                <div class="countdown" id="qr-countdown"></div>
+              </div>
+            </div>
+            <div class="row">
+              <button id="btn-qrcode" class="btn primary" type="button">获取登录二维码</button>
+              <button id="btn-cancel" class="btn ghost" type="button" disabled>取消</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>已登录账号</h2>
+            <div id="account-list" class="list"></div>
+            <div id="account-check-result" class="check-result" role="status" hidden></div>
+            <div class="row end">
+              <button id="btn-check-accounts" class="btn primary" type="button">检测全部登录态</button>
+              <button id="btn-clear-accounts" class="btn danger" type="button">清空全部账号</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>关于数据来源</h2>
+          <p class="hint">
+            本插件<strong>不缓存任何玩家数据</strong>：每次查询都实时请求王者营地，
+            本地只保存登录账号与营地 ID、角色名称的映射。
+          </p>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------- 玩家查询 -->
+      <section class="panel" id="panel-query">
+        <div class="card">
+          <h2>查询玩家数据</h2>
+          <div class="row">
+            <input id="query-keyword" class="input" type="text" placeholder="输入营地 ID 或已保存的角色名称" list="query-mappings" aria-label="营地 ID 或角色名称" />
+            <datalist id="query-mappings"></datalist>
+            <label class="query-count">战绩场数 <input id="query-limit" class="input narrow" type="number" value="10" min="1" max="25" /></label>
+            <button id="btn-query-profile" class="btn ghost" type="button">查询资料</button>
+            <button id="btn-query-battle" class="btn primary" type="button">查询战绩</button>
+          </div>
+          <p class="hint query-hint">查询成功会自动保存角色名称；点击一场战绩可查看双方对局详情。</p>
+          <div id="query-result" class="result" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------- 角色别名 -->
+      <section class="panel" id="panel-aliases">
+        <div class="card">
+          <h2>角色名称映射</h2>
+          <p class="hint">营地 ID 查询成功后自动记录游戏角色名。这里可修改显示名称，修改后不会被下次查询覆盖。</p>
+          <div class="row">
+            <input id="alias-search" class="input" type="text" placeholder="按角色名称或 ID 搜索" aria-label="搜索角色名称映射" />
+            <button id="btn-alias-search" class="btn ghost" type="button">搜索</button>
+          </div>
+          <div id="alias-list" class="list"></div>
+        </div>
+      </section>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <!-- 确认弹窗：插件页面运行在 sandbox iframe 中，window.confirm 会被浏览器
+         静默忽略（返回 false），因此必须用页面内的确认框。 -->
+    <div id="confirm-mask" class="confirm-mask" role="dialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
+      <div class="confirm-box">
+        <div class="confirm-title" id="confirm-title">确认操作</div>
+        <div class="confirm-text" id="confirm-text"></div>
+        <div class="confirm-actions">
+          <button class="btn ghost" id="confirm-no" type="button">取消</button>
+          <button class="btn danger" id="confirm-yes" type="button">确定</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="alias-edit-mask" class="confirm-mask" role="dialog" aria-modal="true" aria-labelledby="alias-edit-title" hidden>
+      <form id="alias-edit-form" class="confirm-box">
+        <div class="confirm-title" id="alias-edit-title">修改角色显示名称</div>
+        <p id="alias-edit-meta" class="hint"></p>
+        <label class="edit-label" for="alias-edit-name">显示名称</label>
+        <input id="alias-edit-name" class="input" type="text" maxlength="80" required />
+        <div class="confirm-actions edit-actions">
+          <button class="btn ghost" id="alias-edit-cancel" type="button">取消</button>
+          <button class="btn primary" id="alias-edit-save" type="submit">保存名称</button>
+        </div>
+      </form>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

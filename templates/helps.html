@@ -1,159 +1,107 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <title>王者插件功能</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 40px 20px;
-            background: linear-gradient(180deg, #f5f7fb 0%, #eef1f7 100%);
-            color: #2c2c33;
-            font-family: "Microsoft YaHei", Arial, sans-serif;
-        }
-
-        /* 页面主体宽度控制 */
-        .container {
-            max-width: 980px;
-            margin: 0 auto;
-        }
-
-        /* 顶部标题 */
-        .header {
-            margin-bottom: 36px;
-        }
-
-        .header h1 {
-            font-size: 42px;
-            margin: 0 0 10px;
-            color: #1f2a44;
-        }
-
-        .header p {
-            font-size: 20px;
-            color: #5a627a;
-            margin: 0;
-        }
-
-        /* 分组 */
-        .group {
-            margin-bottom: 42px;
-        }
-
-        .group-title {
-            font-size: 30px;
-            font-weight: bold;
-            margin-bottom: 18px;
-            padding-left: 14px;
-            border-left: 6px solid #4f7cff;
-            color: #1f2a44;
-        }
-
-        /* 单列 */
-        .command-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 14px;
-        }
-
-        /* 指令行 */
-        .command {
-            background: #ffffff;
-            border-radius: 12px;
-            padding: 14px 18px;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
-            position: relative;
-            overflow: hidden;
-
-            display: inline-flex;
-            align-items: center;
-            gap: 18px;
-        }
-
-        .command::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 4px;
-            height: 100%;
-            background: #4f7cff;
-        }
-
-        .cmd-name {
-            font-size: 24px;
-            font-weight: bold;
-            color: #2b3a67;
-            white-space: nowrap;
-            min-width: 140px;
-        }
-
-        .cmd-usage {
-            font-size: 22px;
-            color: #1f2a44;
-            background: #f0f3ff;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-family: Consolas, "Courier New", monospace;
-            white-space: nowrap;
-        }
-
-        /* 提示 */
-        .tip {
-            margin-top: 40px;
-            font-size: 16px;
-            color: #5a5f73;
-            background: #fffbe6;
-            padding: 16px 20px;
-            border-left: 6px solid #ffcc00;
-            border-radius: 10px;
-            line-height: 1.6;
-        }
-
-        /* 小屏适配 */
-        @media (max-width: 640px) {
-            .cmd-name {
-                min-width: auto;
-            }
-
-            .command {
-                flex-wrap: wrap;
-                gap: 10px;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<title>王者营地查询 · 功能说明</title>
+<style>
+  :root {
+    --bg: #0f1523;
+    --panel: #182034;
+    --panel-2: #1f2941;
+    --gold: #e8c37a;
+    --gold-dim: #b99a5b;
+    --text: #e8edf7;
+    --muted: #93a0bb;
+    --blue: #5aa9e6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 760px;
+    background: linear-gradient(160deg, #0f1523 0%, #131b2c 100%);
+    color: var(--text);
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    padding: 22px;
+  }
+  .head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .head .bar { width: 5px; height: 30px; background: linear-gradient(180deg, var(--gold), #8a6d34); border-radius: 3px; }
+  .head h1 { font-size: 22px; letter-spacing: 1px; }
+  .head .sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid #26304a;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .card h2 {
+    font-size: 14px;
+    color: var(--gold);
+    margin-bottom: 10px;
+    padding-left: 9px;
+    border-left: 3px solid var(--gold-dim);
+    letter-spacing: .5px;
+  }
+  .cmd { display: flex; align-items: baseline; gap: 10px; padding: 6px 0; border-bottom: 1px dashed #232d45; }
+  .cmd:last-child { border-bottom: none; }
+  .cmd code {
+    flex: 0 0 205px;
+    background: var(--panel-2);
+    border: 1px solid #2b3752;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 13px;
+    color: var(--blue);
+    font-family: Consolas, "Courier New", monospace;
+  }
+  .cmd span { font-size: 13px; color: #c6d0e4; line-height: 1.5; }
+  .note { font-size: 12px; color: var(--muted); line-height: 1.75; }
+  .note b { color: var(--gold-dim); font-weight: 600; }
+  .foot { margin-top: 14px; text-align: right; font-size: 11px; color: #6b7893; }
+</style>
 </head>
 <body>
-
-<div class="container">
-
-<div class="header">
-    <h1>王者插件功能</h1>
-    <p>astrbot_plugin_gok 指令说明与使用示例</p>
-</div>
-
-<div class="group">
-    <div class="group-title">基础功能</div>
-    <div class="command-grid">
-        <div class="command"><div class="cmd-name">功能</div><div class="cmd-usage">功能</div></div>
-        <div class="command"><div class="cmd-name">对局战绩</div><div class="cmd-usage">战绩 角色/营地ID</div></div>
-        <div class="command"><div class="cmd-name">角色资料</div><div class="cmd-usage">资料 角色/营地ID</div></div>
-        <div class="command"><div class="cmd-name">上榜战力</div><div class="cmd-usage">上榜战力 英雄 大区</div></div>
-        <div class="command"><div class="cmd-name">角色查看</div><div class="cmd-usage">角色查看</div></div>
-        <div class="command"><div class="cmd-name">角色添加</div><div class="cmd-usage">角色添加 营地ID 角色</div></div>
-        <div class="command"><div class="cmd-name">角色修改</div><div class="cmd-usage">角色修改 营地ID 角色</div></div>
-        <div class="command"><div class="cmd-name">角色删除</div><div class="cmd-usage">角色删除 营地ID</div></div>
-        <div class="command"><div class="cmd-name">角色查询</div><div class="cmd-usage">角色查询 营地ID/角色</div></div>
+  <div class="head">
+    <div class="bar"></div>
+    <div>
+      <h1>王者营地 数据查询</h1>
+      <div class="sub">数据来源：王者营地官方接口（扫码登录后查询）</div>
     </div>
-</div>
+  </div>
 
-<div class="tip">
-    <strong>使用提示：</strong><br>
-    1. 指令里面的角色指的是自定义的查询名称<br>
-    2. 战绩和资料的指令必须配置令牌才可使用<br>
-    3. 如果启用指令前缀功能，需要在指令前面加上设定的前缀<br>
-</div>
+  <div class="card">
+    <h2>查询指令（参数支持营地 ID 或已保存的别名）</h2>
+    <div class="cmd"><code>战绩 [ID/别名] [场数]</code><span>最近对局战绩图，默认 10 场</span></div>
+    <div class="cmd"><code>资料 [ID/别名]</code><span>段位、赛季胜率、本赛季常用英雄</span></div>
+    <div class="cmd"><code>对局 [ID/别名] [序号]</code><span>查看某一场的十人详细数据</span></div>
+  </div>
 
-</div>
+  <div class="card">
+    <h2>角色名称映射</h2>
+    <div class="note">使用营地 ID 查询成功后自动保存游戏角色名称，显示名称可在插件管理页修改。</div>
+    <div class="cmd"><code>角色查看</code><span>列出全部已保存角色</span></div>
+  </div>
+
+  <div class="card">
+    <h2>登录与账号</h2>
+    <div class="cmd"><code>营地登录</code><span>查看登录状态与扫码入口</span></div>
+    <div class="cmd"><code>营地账号</code><span>查看已登录账号与冷却状态</span></div>
+    <div class="cmd"><code>功能 / 帮助 / 王者功能</code><span>显示本说明</span></div>
+    <div class="note" style="margin-top:8px">
+      首次使用需在 <b>AstrBot 管理面板 → 插件 → 本插件页面</b> 用微信扫码登录王者营地；
+      登录态失效时同样回到该页面重新扫码。
+      页面「检测全部登录态」可逐个验证账号，频控或网络异常会单独提示。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>说明</h2>
+    <div class="note">
+      · 需在游戏中或营地中<b>开放战绩</b>，对方隐藏战绩时无法查询。<br>
+      · 所有数据都是<b>实时查询</b>，插件不缓存任何玩家数据，因此看到的战绩永远是最新的。<br>
+      · 支持登录多个营地账号，触发频控时自动切换。
+    </div>
+  </div>
+
+  <div class="foot">数据时间：{{ data_time }}</div>
 </body>
 </html>

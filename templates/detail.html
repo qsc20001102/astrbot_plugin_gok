@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>对局详情</title>
+<style>
+  :root {
+    --gold: #e8c37a;
+    --gold-dim: #b99a5b;
+    --text: #e8edf7;
+    --muted: #93a0bb;
+    --panel: #182034;
+    --blue-team: #4a86c8;
+    --red-team: #c85a52;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 100%;
+    min-width: 1120px;
+    background: linear-gradient(160deg, #0f1523 0%, #131b2c 100%);
+    color: var(--text);
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    padding: 20px;
+  }
+  .head {
+    background: var(--panel); border: 1px solid #26304a; border-radius: 12px;
+    padding: 14px 18px; margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .head .t { font-size: 23.4px; font-weight: 600; }
+  .head .t small { font-size: 15.6px; color: var(--muted); margin-left: 10px; font-weight: 400; }
+  .head .res { font-size: 26px; font-weight: 700; }
+  .head .res.win { color: #5fce8f; }
+  .head .res.lose { color: #e2685f; }
+
+  .team { margin-bottom: 14px; }
+  .team-title {
+    font-size: 16.9px; font-weight: 600; letter-spacing: 1px;
+    padding: 6px 12px; border-radius: 8px 8px 0 0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .team-title.blue { background: linear-gradient(90deg, rgba(74,134,200,.35), transparent); color: #8fc0f0; }
+  .team-title.red { background: linear-gradient(90deg, rgba(200,90,82,.35), transparent); color: #f0a09a; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--panel); }
+  thead th {
+    background: #1c2438; color: var(--muted); font-size: 14.3px;
+    padding: 8px 6px; text-align: center; font-weight: 600; white-space: nowrap;
+  }
+  tbody td { padding: 7px 6px; font-size: 16.2px; text-align: center; border-top: 1px solid #212b42; }
+  tbody tr:nth-child(even) { background: #1a2233; }
+  tbody tr.target { background: rgba(232,195,122,.13); box-shadow: inset 3px 0 0 var(--gold); }
+  .hero { display: flex; align-items: center; gap: 8px; text-align: left; }
+  .hero img { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #33405e; }
+  .hero .nm { font-size: 16.2px; }
+  .hero .hd { font-size: 13.7px; color: var(--muted); margin-top: 1px; }
+  .num { font-family: Consolas, monospace; }
+  .kda i { font-style: normal; color: var(--muted); margin: 0 2px; }
+  .kda .d { color: #e2685f; }
+  .foot { margin-top: 12px; text-align: right; font-size: 14.3px; color: #6b7893; }
+  .equipment { display: grid; grid-template-columns: repeat(3, 27px); gap: 3px; min-width: 87px; }
+  .equipment img { width: 27px; height: 27px; object-fit: contain; border-radius: 4px; background: #253050; }
+  .equipment .placeholder { display: flex; align-items: center; justify-content: center; width: 27px; height: 27px; font-size: 13px; background: #253050; }
+  .empty { padding: 30px; text-align: center; color: var(--muted); font-size: 16.9px; }
+</style>
+</head>
+<body>
+  {% set m = data.match %}
+  <div class="head">
+    <div class="t">
+      {{ m.hero_name }} · {{ m.mode_name }}
+      <small>{{ m.played_at }} · 时长 {{ m.duration_text }}</small>
+    </div>
+    <div>
+      <span class="res {{ 'win' if m.win else 'lose' }}">{{ m.result_text }}</span>
+      <span style="color:#93a0bb;font-size:16.9px;margin-left:10px">
+        {{ m.kills }} / {{ m.deaths }} / {{ m.assists }} · 评分 {{ m.score_text }}
+      </span>
+    </div>
+  </div>
+
+  {% macro team_table(rows, cls) %}
+  <div class="team">
+    <div class="team-title {{ cls }}">{{ '蓝方' if cls == 'blue' else '红方' }}</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:left;padding-left:12px">玩家 / 英雄</th>
+          <th>等级</th><th>KDA</th><th>出装</th><th>经济</th><th>输出</th><th>承伤</th><th>战力</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="{{ 'target' if r.is_target else '' }}">
+          <td>
+            <div class="hero">
+              {% if r.hero_icon %}<img src="{{ r.hero_icon }}" alt="">{% endif %}
+              <div>
+                <div class="nm">{{ r.nickname or '未知玩家' }}</div>
+                <div class="hd">{{ r.hero_name if r.hero_name else ('英雄' + r.hero_id if r.hero_id else '') }}</div>
+              </div>
+            </div>
+          </td>
+          <td class="num">{{ r.level if r.level is not none else '—' }}</td>
+          <td class="num kda">{{ r.kills }}<i>/</i><span class="d">{{ r.deaths }}</span><i>/</i>{{ r.assists }}</td>
+          <td><div class="equipment">{% for item in r.equipment %}{% if item.icon %}<img src="{{ item.icon }}" alt="{{ item.name }}" title="{{ item.name }}">{% else %}<span class="placeholder" title="{{ item.name }}">{{ item.name[:1] or item.id }}</span>{% endif %}{% endfor %}</div>{% if not r.equipment %}—{% endif %}</td>
+          <td class="num">{{ r.money }}</td>
+          <td class="num">{{ r.hurt }}</td>
+          <td class="num">{{ r.behurt }}</td>
+          <td class="num">{{ r.fight_power or '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endmacro %}
+
+  {% if data.has_detail %}
+    {{ team_table(data.blue, 'blue') }}
+    {{ team_table(data.red, 'red') }}
+  {% else %}
+    <div class="empty">该对局没有返回详细面板数据</div>
+  {% endif %}
+
+  <div class="foot">数据时间：{{ data_time }} · 数据来源：王者营地</div>
+</body>
+</html>

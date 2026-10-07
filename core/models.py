@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -17,8 +16,6 @@ from zoneinfo import ZoneInfo
 
 from .heroes import hero_repository, strip_control_chars
 from .rank import rank_name_from_code, strip_rank_stars
-
-logger = logging.getLogger(__name__)
 
 __all__ = [
     "PlayerProfile",

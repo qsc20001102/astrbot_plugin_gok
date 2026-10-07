@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import secrets
 import urllib.parse
 from time import time
 from typing import Any
+
+from astrbot.api import logger
 
 from .camp_auth import CampAccount, CampAuthStore
 from .camp_crypto import (
@@ -24,8 +25,6 @@ from .camp_crypto import (
     decode_camp_payload,
 )
 from .http import HttpClient
-
-logger = logging.getLogger(__name__)
 
 __all__ = ["CampApiError", "CampClient", "MAIN_BASE"]
 

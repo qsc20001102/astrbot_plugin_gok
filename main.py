@@ -38,7 +38,7 @@ PLUGIN_NAME = "astrbot_plugin_gok"
     PLUGIN_NAME,
     "飞翔大野猪",
     "通过王者营地官方接口实时查询王者荣耀玩家数据（扫码登录，无需第三方接口）",
-    "2.4.1",
+    "2.4.2",
     "https://github.com/qsc20001102/astrbot_plugin_gok",
 )
 class GokPlugin(Star):

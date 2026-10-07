@@ -7,14 +7,11 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import ssl
 from collections.abc import Mapping
 from typing import Any
 
 import aiohttp
-
-logger = logging.getLogger(__name__)
 
 __all__ = ["HttpResponse", "HttpClient"]
 

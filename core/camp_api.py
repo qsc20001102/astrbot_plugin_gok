@@ -8,12 +8,9 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 from .camp_client import CampClient
-
-logger = logging.getLogger(__name__)
 
 __all__ = [
     "CampDataApi",

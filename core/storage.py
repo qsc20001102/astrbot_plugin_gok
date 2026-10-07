@@ -6,13 +6,12 @@
 
 from __future__ import annotations
 
-import logging
 import time
 from typing import Any
 
-from .sqlite import AsyncSQLiteDB
+from astrbot.api import logger
 
-logger = logging.getLogger(__name__)
+from .sqlite import AsyncSQLiteDB
 
 __all__ = ["GokStorage"]
 

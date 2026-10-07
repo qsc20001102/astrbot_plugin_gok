@@ -9,8 +9,9 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
+
+from astrbot.api import logger
 
 from .camp_api import CampDataApi
 from .camp_auth import CampAuthStore
@@ -28,8 +29,6 @@ from .models import (
     parse_season_stats,
 )
 from .storage import GokStorage
-
-logger = logging.getLogger(__name__)
 
 __all__ = ["GokService", "ServiceResult"]
 

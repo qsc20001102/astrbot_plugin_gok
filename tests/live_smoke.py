@@ -27,6 +27,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from test_plugin import install_stubs  # noqa: E402
+
+# Only the host API is stubbed; Camp requests use the real HTTP client.
+install_stubs()
+
 from core.camp_api import CampDataApi  # noqa: E402
 from core.camp_auth import CampAuthStore  # noqa: E402
 from core.camp_client import CampApiError, CampClient  # noqa: E402

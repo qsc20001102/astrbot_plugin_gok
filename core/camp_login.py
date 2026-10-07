@@ -18,7 +18,6 @@ import asyncio
 import base64
 import hashlib
 import json
-import logging
 import random
 import secrets
 import time
@@ -28,6 +27,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from astrbot.api import logger
+
 from .camp_auth import CampAccount, CampAuthStore
 from .camp_crypto import (
     DEFAULT_PUBLIC_KEY,
@@ -35,8 +36,6 @@ from .camp_crypto import (
     rsa_encrypt_chunked,
 )
 from .http import HttpClient
-
-logger = logging.getLogger(__name__)
 
 __all__ = ["CampLoginManager", "CampLoginSession", "QR_SESSION_TTL_SECONDS"]
 

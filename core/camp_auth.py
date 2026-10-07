@@ -14,16 +14,15 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import time
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .camp_crypto import DEFAULT_PUBLIC_KEY, decode_encode_res
+from astrbot.api import logger
 
-logger = logging.getLogger(__name__)
+from .camp_crypto import DEFAULT_PUBLIC_KEY, decode_encode_res
 
 __all__ = ["CampAccount", "CampAuthStore"]
 

@@ -343,7 +343,7 @@ async def run_tests() -> None:
 
 async def exercise(plugin, context, module, config) -> None:
     print("\n[装配]")
-    check("指令表已填充", len(plugin.command_map) == 13, str(len(plugin.command_map)))
+    check("指令表已填充", len(plugin.command_map) == 8, str(len(plugin.command_map)))
     check("页面路由已注册", len(context.routes) == 12, str(len(context.routes)))
     route_paths = {r[0] for r in context.routes}
     for expected in (

@@ -18,6 +18,11 @@ from unittest.mock import AsyncMock, Mock, patch
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from test_plugin import install_stubs  # noqa: E402
+
+# Reuse the host API stub to keep the offline suite independent of AstrBot.
+install_stubs()
+
 from core import camp_crypto, xxtea  # noqa: E402
 from core.heroes import hero_repository  # noqa: E402
 from core.models import (  # noqa: E402

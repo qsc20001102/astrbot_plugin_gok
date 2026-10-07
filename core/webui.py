@@ -7,16 +7,14 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
+from astrbot.api import logger
 from astrbot.api.star import Context
 from astrbot.api.web import error_response, json_response, request
 
 from .camp_auth import CampAccount
 from .service import GokService
-
-logger = logging.getLogger(__name__)
 
 __all__ = ["WebUIService"]
 

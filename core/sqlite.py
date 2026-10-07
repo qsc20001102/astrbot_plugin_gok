@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import AsyncIterator, Iterable, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -16,7 +15,7 @@ from typing import Any
 
 import aiosqlite
 
-logger = logging.getLogger(__name__)
+from astrbot.api import logger
 
 __all__ = ["AsyncSQLiteDB"]
 

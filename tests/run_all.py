@@ -12,6 +12,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SUITES = (
+    ("昵称搜索与查询选择", "test_search.py"),
     ("核心层（加密 / 段位 / 解析 / 存储）", "test_core.py"),
     ("插件层（装配 / 指令分发 / 页面接口）", "test_plugin.py"),
     ("模板渲染", "test_templates.py"),

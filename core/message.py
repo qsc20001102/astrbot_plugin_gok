@@ -93,8 +93,8 @@ class MessageSender:
             if isinstance(data, dict):
                 if result.get("temp") == "aliases.html":
                     rows = data.get("list") or []
-                    return "已保存角色（名称 → 营地 ID）\n" + "\n".join(
-                        f"{i}. {row['name']} → {row['gokid']}"
+                    return "已保存角色（游戏昵称 · 营地 ID · 别名）\n" + "\n".join(
+                        f"{i}. {row['role_name'] or '待更新昵称'} · {row['gokid']} · 别名：{row['alias'] or '未设置'}"
                         for i, row in enumerate(rows, 1)
                     )
                 profile = data.get("profile") or {}
@@ -122,6 +122,7 @@ class MessageSender:
                         lines.append("该角色已隐藏战绩")
                     return "\n".join(lines)
                 if result.get("temp") == "battle.html":
+                    lines.insert(0, str(data.get("query_title") or "全部战绩"))
                     summary = data.get("summary") or {}
                     lines.append(
                         f"近{summary.get('total', 0)}场：{summary.get('wins', 0)}胜 / {summary.get('loses', 0)}负 / 胜率 {summary.get('win_rate', 0)}%"

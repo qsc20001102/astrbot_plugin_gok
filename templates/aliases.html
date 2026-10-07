@@ -45,15 +45,15 @@
 
   <table>
     <thead>
-      <tr><th class="idx">#</th><th>显示名称</th><th>游戏角色名</th><th>营地 ID</th></tr>
+      <tr><th class="idx">#</th><th>游戏昵称</th><th>营地 ID</th><th>别名</th></tr>
     </thead>
     <tbody>
       {% for row in data.list %}
       <tr>
         <td class="idx">{{ loop.index }}</td>
-        <td class="alias">{{ row.name }}</td>
-        <td>{{ row.role_name or row.name }}</td>
+        <td>{{ row.role_name or '待更新昵称' }}</td>
         <td class="id">{{ row.gokid }}</td>
+        <td class="alias">{{ row.alias or '未设置' }}</td>
       </tr>
       {% endfor %}
     </tbody>

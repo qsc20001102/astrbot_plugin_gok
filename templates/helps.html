@@ -69,15 +69,17 @@
   </div>
 
   <div class="card">
-    <h2>查询指令（参数支持营地 ID 或已保存的别名）</h2>
-    <div class="cmd"><code>战绩 [ID/别名] [场数]</code><span>最近对局战绩图，默认 10 场</span></div>
+    <h2>查询指令（参数支持营地 ID、别名或昵称）</h2>
+    <div class="cmd"><code>战绩 [ID/别名/昵称] [场数]</code><span>全部模式近期战绩，默认 10 场</span></div>
+    <div class="cmd"><code>排位战绩 [ID/别名/昵称] [场数]</code><span>仅查询排位战绩</span></div>
+    <div class="cmd"><code>巅峰战绩 [ID/别名/昵称] [场数]</code><span>仅查询巅峰战绩</span></div>
     <div class="cmd"><code>资料 [ID/别名]</code><span>段位、赛季胜率、本赛季常用英雄</span></div>
     <div class="cmd"><code>对局 [ID/别名] [序号]</code><span>查看某一场的十人详细数据</span></div>
   </div>
 
   <div class="card">
     <h2>角色名称映射</h2>
-    <div class="note">使用营地 ID 查询成功后自动保存游戏角色名称，显示名称可在插件管理页修改。</div>
+    <div class="note">查询成功自动保存游戏昵称与营地 ID，只能在管理页设置独立别名；同名结果回复序号选择，60 秒超时结束。</div>
     <div class="cmd"><code>角色查看</code><span>列出全部已保存角色</span></div>
   </div>
 

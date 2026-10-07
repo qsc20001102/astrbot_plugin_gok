@@ -24,6 +24,7 @@ from .camp_crypto import (
     build_special_encode_param,
     decode_camp_payload,
 )
+from .camp_search import parse_search_response
 from .http import HttpClient
 
 __all__ = ["CampApiError", "CampClient", "MAIN_BASE"]
@@ -128,12 +129,39 @@ class CampClient:
 
     # ------------------------------------------------------------------ 响应解析
     @staticmethod
-    def _parse_response(response, account: CampAccount) -> dict[str, Any]:
+    def _parse_response(
+        response, account: CampAccount, *, protobuf: bool = False
+    ) -> dict[str, Any]:
         encrypt_error = response.header("encryptparamerr")
         if encrypt_error:
             raise CampApiError(
                 f"营地安全参数校验失败({encrypt_error})，请重新扫码登录", "auth"
             )
+
+        return_code_header = response.header("returncode")
+        if protobuf:
+            if return_code_header and _as_int(return_code_header) not in (0, 200):
+                return {
+                    "returnCode": _as_int(return_code_header),
+                    "returnMsg": _decode_header(response.header("returnmsg")),
+                }
+            try:
+                body = response.body
+                if response.header("campencrypt").lower() == "true":
+                    body = decode_camp_payload(
+                        response.text, account.resolve_user_key(), binary=True
+                    )
+                assert isinstance(body, bytes)
+                if body.lstrip().startswith(b"{"):
+                    payload = json.loads(body)
+                    if not isinstance(payload, dict):
+                        raise ValueError("Invalid Camp error response")
+                    return payload
+                return parse_search_response(body)
+            except (ValueError, TypeError, AssertionError) as exc:
+                raise CampApiError(
+                    "营地昵称搜索响应无法解析，请稍后重试", "upstream"
+                ) from exc
 
         payload_text = response.text
         if response.header("campencrypt").lower() == "true":
@@ -145,7 +173,6 @@ class CampClient:
                     f"营地响应解密失败({type(exc).__name__})，请稍后重试", "upstream"
                 ) from exc
 
-        return_code_header = response.header("returncode")
         if not payload_text.strip() and return_code_header:
             return {
                 "returnCode": _as_int(return_code_header),
@@ -184,25 +211,37 @@ class CampClient:
 
     # ------------------------------------------------------------------ 核心请求
     async def _request_once(
-        self, account: CampAccount, endpoint: str, body: dict[str, Any]
+        self,
+        account: CampAccount,
+        endpoint: str,
+        body: dict[str, Any] | bytes,
+        *,
+        protobuf: bool = False,
     ) -> dict[str, Any]:
         if not account.ready:
             raise CampApiError("营地登录态不完整，请重新扫码登录", "auth")
+        headers = self._build_headers(account)
+        if protobuf:
+            headers["Content-Type"] = "application/x-protobuf"
         response = await self.http.request(
             "POST",
             f"{MAIN_BASE}{endpoint}",
-            headers=self._build_headers(account),
-            json_body=body,
+            headers=headers,
+            **({"data": body} if protobuf else {"json_body": body}),
         )
         if response.status is None:
             raise CampApiError(response.error or "营地接口请求失败", "upstream")
-        data = self._parse_response(response, account)
+        if protobuf and not response.ok:
+            raise CampApiError(f"营地接口请求失败(HTTP {response.status})", "upstream")
+        data = self._parse_response(response, account, protobuf=protobuf)
         self._raise_for_business_error(data)
         if not response.ok:
             raise CampApiError(f"营地接口请求失败(HTTP {response.status})", "upstream")
         return data
 
-    async def request(self, endpoint: str, body: dict[str, Any]) -> dict[str, Any]:
+    async def request(
+        self, endpoint: str, body: dict[str, Any] | bytes, *, protobuf: bool = False
+    ) -> dict[str, Any]:
         """带账号池的请求：遇频控/失效自动冷却当前账号并换号重试。"""
         tried: set[str] = set()
         last_error: CampApiError | None = None
@@ -213,7 +252,9 @@ class CampClient:
                 break
             tried.add(account.user_id)
             try:
-                return await self._request_once(account, endpoint, body)
+                return await self._request_once(
+                    account, endpoint, body, protobuf=protobuf
+                )
             except CampApiError as exc:
                 last_error = exc
                 if exc.retryable:

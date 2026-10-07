@@ -1,4 +1,4 @@
-"""本地数据仓库：仅保存营地 ID、游戏角色名与管理页显示名称的映射。
+"""本地数据仓库：仅保存营地 ID、真实游戏昵称与独立人工别名的映射。
 
 这里**不做任何数据缓存** —— 玩家概况与对局记录每次都实时向营地接口请求，
 不落库、不聚合、不增量同步。营地侧数据变化后立即反映到查询结果。
@@ -19,14 +19,12 @@ _SCHEMA = (
     """
     CREATE TABLE IF NOT EXISTS aliases (
         gokid      INTEGER PRIMARY KEY,
-        name       TEXT NOT NULL,
         role_name  TEXT NOT NULL DEFAULT '',
-        manually_named INTEGER NOT NULL DEFAULT 0,
+        alias      TEXT NOT NULL DEFAULT '',
         created_at REAL NOT NULL,
         updated_at REAL NOT NULL
     )
     """,
-    "CREATE INDEX IF NOT EXISTS idx_aliases_name ON aliases(name)",
 )
 
 # 早期版本曾把玩家概况与对局写进本地库作为缓存；既然不再缓存数据，
@@ -42,20 +40,36 @@ class GokStorage:
 
     # ------------------------------------------------------------------ 建表
     async def initialize(self) -> None:
-        for statement in _SCHEMA:
-            await self.db.execute(statement)
-        columns = {
-            row["name"] for row in await self.db.fetch_all("PRAGMA table_info(aliases)")
-        }
-        if "role_name" not in columns:
+        async with self.db.transaction():
+            columns = {
+                row["name"]
+                for row in await self.db.fetch_all("PRAGMA table_info(aliases)")
+            }
+            if columns and "alias" not in columns:
+                # Preserve administrator names; unresolved legacy nicknames stay empty.
+                role_column = "role_name" if "role_name" in columns else "''"
+                alias_column = (
+                    "CASE WHEN manually_named=1 THEN name ELSE '' END"
+                    if "manually_named" in columns
+                    else "name"
+                )
+                await self.db.execute(
+                    _SCHEMA[0].replace("IF NOT EXISTS aliases", "aliases_v3")
+                )
+                await self.db.execute(
+                    "INSERT INTO aliases_v3 (gokid,role_name,alias,created_at,updated_at) "
+                    f"SELECT gokid,{role_column},{alias_column},created_at,updated_at FROM aliases"
+                )
+                await self.db.execute("DROP TABLE aliases")
+                await self.db.execute("ALTER TABLE aliases_v3 RENAME TO aliases")
+            else:
+                await self.db.execute(_SCHEMA[0])
             await self.db.execute(
-                "ALTER TABLE aliases ADD COLUMN role_name TEXT NOT NULL DEFAULT ''"
+                "CREATE INDEX IF NOT EXISTS idx_aliases_alias ON aliases(alias)"
             )
-        if "manually_named" not in columns:
             await self.db.execute(
-                "ALTER TABLE aliases ADD COLUMN manually_named INTEGER NOT NULL DEFAULT 0"
+                "CREATE INDEX IF NOT EXISTS idx_aliases_role_name ON aliases(role_name)"
             )
-            await self.db.execute("UPDATE aliases SET manually_named=1")
         await self._drop_obsolete_cache_tables()
         logger.debug("本地数据表已就绪（仅角色别名）")
 
@@ -79,7 +93,7 @@ class GokStorage:
             return False
         now = time.time()
         await self.db.execute(
-            "INSERT INTO aliases (gokid, name, created_at, updated_at, manually_named) VALUES (?,?,?,?,1)",
+            "INSERT INTO aliases (gokid, role_name, created_at, updated_at) VALUES (?,?,?,?)",
             (gokid, name, now, now),
         )
         return True
@@ -91,7 +105,7 @@ class GokStorage:
         if not existing:
             return False
         await self.db.execute(
-            "UPDATE aliases SET name=?, updated_at=?, manually_named=1 WHERE gokid=?",
+            "UPDATE aliases SET alias=?, updated_at=? WHERE gokid=?",
             (name, time.time(), gokid),
         )
         return True
@@ -105,11 +119,10 @@ class GokStorage:
         """
         now = time.time()
         await self.db.execute(
-            "INSERT INTO aliases (gokid,name,role_name,created_at,updated_at) VALUES (?,?,?,?,?) "
+            "INSERT INTO aliases (gokid,role_name,created_at,updated_at) VALUES (?,?,?,?) "
             "ON CONFLICT(gokid) DO UPDATE SET role_name=excluded.role_name, "
-            "name=CASE WHEN aliases.manually_named=1 THEN aliases.name ELSE excluded.name END, "
             "updated_at=excluded.updated_at",
-            (gokid, role_name, role_name, now, now),
+            (gokid, role_name, now, now),
         )
 
     async def delete_alias(self, gokid: int) -> bool:
@@ -123,14 +136,25 @@ class GokStorage:
 
     async def list_aliases(self) -> list[dict[str, Any]]:
         return await self.db.fetch_all(
-            "SELECT gokid, name, role_name, manually_named, created_at, updated_at FROM aliases ORDER BY updated_at DESC"
+            "SELECT gokid, role_name, alias, created_at, updated_at FROM aliases ORDER BY updated_at DESC"
         )
 
-    async def find_aliases(self, keyword: str) -> list[dict[str, Any]]:
+    async def find_aliases(
+        self, keyword: str, *, exact: bool = False
+    ) -> list[dict[str, Any]]:
         """按别名或营地 ID 模糊查询。"""
+        if exact:
+            rows = await self.db.fetch_all(
+                "SELECT gokid,role_name,alias FROM aliases WHERE alias=? AND alias<>'' ORDER BY updated_at DESC",
+                (keyword,),
+            )
+            return rows or await self.db.fetch_all(
+                "SELECT gokid,role_name,alias FROM aliases WHERE role_name=? ORDER BY updated_at DESC",
+                (keyword,),
+            )
         pattern = f"%{keyword}%"
         return await self.db.fetch_all(
-            "SELECT gokid, name, role_name, manually_named FROM aliases WHERE name LIKE ? OR role_name LIKE ? OR CAST(gokid AS TEXT) LIKE ?"
+            "SELECT gokid, role_name, alias FROM aliases WHERE alias LIKE ? OR role_name LIKE ? OR CAST(gokid AS TEXT) LIKE ?"
             " ORDER BY updated_at DESC",
             (pattern, pattern, pattern),
         )
@@ -140,16 +164,10 @@ class GokStorage:
         text = (keyword or "").strip()
         if not text:
             return None
-        if text.isdigit() and 5 <= len(text) <= 15:
+        if text.isascii() and text.isdigit() and 5 <= len(text) <= 15:
             return int(text)
-        rows = await self.db.fetch_all(
-            "SELECT gokid FROM aliases WHERE name=? OR role_name=?",
-            (text, text),
-        )
-        if rows:
-            return int(rows[0]["gokid"]) if len(rows) == 1 else None
-        matches = await self.find_aliases(text)
-        return int(matches[0]["gokid"]) if len(matches) == 1 else None
+        rows = await self.find_aliases(text, exact=True)
+        return int(rows[0]["gokid"]) if len(rows) == 1 else None
 
     async def count_aliases(self) -> int:
         value = await self.db.fetch_value("SELECT COUNT(*) FROM aliases", default=0)

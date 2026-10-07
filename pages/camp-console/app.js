@@ -30,6 +30,7 @@ const state = {
   queryKeyword: "",
   queryKind: "battle",
   editingId: "",
+  selectionTimer: null,
 };
 
 /* ------------------------------------------------------------------ 工具 */
@@ -387,6 +388,21 @@ function playerHeader(p) {
 
 /* ------------------------------------------------------------------ Player results */
 function renderQueryResult(result) {
+  if (result.type === "selection") {
+    const candidates = result.data?.candidates || [];
+    const expiresAt = Date.now() + 60000;
+    const box = byId("query-result");
+    box.innerHTML = `<h3>选择要查询的用户</h3><p class="hint">请在 60 秒内选择；超时后请重新查询。</p>${candidates.map((user, i) => `<button class="btn" type="button" data-player-choice="${i}">${i + 1}. ${escapeHtml(user.name || "未知角色")} · 营地 ID ${escapeHtml(user.uid)} · ${escapeHtml(user.region || "")} ${escapeHtml(user.dw || "")}</button>`).join("")}`;
+    box.querySelectorAll("[data-player-choice]").forEach(button => button.addEventListener("click", () => {
+      if (Date.now() >= expiresAt) { box.innerHTML = `<div class="empty">选择已超时，请重新查询。</div>`; return; }
+      runQuery(result.query_type, candidates[Number(button.dataset.playerChoice)].uid, "", result.option);
+    }));
+    state.selectionTimer = setTimeout(() => {
+      box.innerHTML = `<div class="empty">选择已超时，请重新查询。</div>`;
+      state.selectionTimer = null;
+    }, 60000);
+    return;
+  }
   const box = byId("query-result");
   if (!result || !["profile", "battle", "detail"].includes(result.type) ||
       !result.data || typeof result.data !== "object" || Array.isArray(result.data)) {
@@ -439,7 +455,7 @@ function renderQueryResult(result) {
   const list = data.list;
   const s = data.summary || {};
   box.innerHTML = `<article class="camp-report">${playerHeader(p)}
-    <div class="report-section-title"><h3>近期战绩</h3><span>统计 ${s.total ?? list.length} 场 · 展示 ${list.length} 场</span></div>
+    <div class="report-section-title"><h3>${escapeHtml(data.query_title || "全部战绩")}</h3><span>统计 ${s.total ?? list.length} 场 · 展示 ${list.length} 场</span></div>
     <div class="report-summary battle-summary">${metric("近期场次", s.total)}${metric("胜场", s.wins, "tone-win")}${metric("负场", s.loses, "tone-lose")}${metric("胜率", `${s.win_rate ?? 0}%`, "tone-win")}${metric("平均 KDA", s.avg_kda)}${metric("平均评分", s.avg_score, "tone-gold")}${metric("MVP / SVP", `${s.mvp_count ?? 0} / ${s.svp_count ?? 0}`)}${metric("金牌", s.gold_count, "tone-gold")}</div>
     <div class="battle-head"><span>英雄 / 模式</span><span>结果</span><span>KDA</span><span>评分</span><span>荣誉</span><span>时长 / 段位</span><span>对局时间</span><span></span></div>
     <div class="battle-list">${list.map((m, i) => `<button class="match-entry ${m.win ? "match-win" : "match-lose"}" data-match-index="${i}" type="button" ${m.game_seq ? "" : "disabled"} aria-label="查看第 ${i + 1} 场 ${escapeHtml(m.hero_name)} 的对局详情">
@@ -457,8 +473,11 @@ function renderQueryResult(result) {
   });
 }
 
-async function runQuery(type = "battle", keyword = "", gameSeq = "") {
+async function runQuery(type = "battle", keyword = "", gameSeq = "", option = Number(byId("query-option").value)) {
   if (state.queryBusy) return;
+  clearTimeout(state.selectionTimer);
+  state.selectionTimer = null;
+  byId("query-option").value = String(option);
   keyword = keyword || byId("query-keyword").value.trim();
   if (!keyword) { showToast("请输入营地 ID 或角色名称", "error"); return; }
   state.queryBusy = true;
@@ -468,7 +487,7 @@ async function runQuery(type = "battle", keyword = "", gameSeq = "") {
   byId("btn-query-profile").disabled = true;
   byId("btn-query-battle").disabled = true;
   try {
-    const data = await bridge.apiGet("query", { keyword, type, limit: Math.min(25, Math.max(1, Number(byId("query-limit").value) || 10)), ...(gameSeq ? { game_seq: gameSeq } : {}) });
+    const data = await bridge.apiGet("query", { keyword, type, option, limit: Math.min(25, Math.max(1, Number(byId("query-limit").value) || 10)), ...(gameSeq ? { game_seq: gameSeq } : {}) });
     renderQueryResult(data);
     await loadDashboard();
   } catch (error) {
@@ -500,19 +519,19 @@ function initQuery() {
 /* ------------------------------------------------------------------ Role mappings */
 function renderAliases(payload = {}) {
   const list = payload.list || [];
-  byId("query-mappings").innerHTML = list.map(row => `<option value="${escapeHtml(row.gokid)}">${escapeHtml(row.name)}</option>`).join("");
+  byId("query-mappings").innerHTML = list.map(row => `<option value="${escapeHtml(row.gokid)}">${escapeHtml(row.role_name)}${row.alias ? `（${escapeHtml(row.alias)}）` : ""}</option>`).join("");
   const box = byId("alias-list");
   if (!list.length) {
     box.innerHTML = `<div class="empty">${escapeHtml(payload.message || "还没有角色名称映射，先用营地 ID 查询资料或战绩即可自动保存")}</div>`;
     return;
   }
-  box.innerHTML = list.map(row => `<div class="item mapping-item"><div class="main"><div class="name">${escapeHtml(row.name)}${row.manually_named ? `<span class="badge">已修改</span>` : ""}</div><div class="meta">营地 ID ${escapeHtml(row.gokid)}${row.role_name ? ` · 游戏角色 ${escapeHtml(row.role_name)}` : ""}</div></div><div class="actions"><button class="btn tiny" data-alias-edit="${row.gokid}" type="button">修改名称</button><button class="btn tiny danger" data-alias-delete="${row.gokid}" type="button">删除</button></div></div>`).join("");
+  box.innerHTML = list.map(row => `<div class="item mapping-item"><div class="main"><div class="name">游戏昵称：${escapeHtml(row.role_name || "待更新昵称")}</div><div class="meta">营地 ID：${escapeHtml(row.gokid)} · 别名：${escapeHtml(row.alias || "未设置")}</div></div><div class="actions"><button class="btn tiny" data-alias-edit="${row.gokid}" type="button">设置别名</button><button class="btn tiny danger" data-alias-delete="${row.gokid}" type="button">删除</button></div></div>`).join("");
   box.querySelectorAll("[data-alias-delete]").forEach(button => button.addEventListener("click", () => deleteAlias(button.dataset.aliasDelete)));
   box.querySelectorAll("[data-alias-edit]").forEach(button => button.addEventListener("click", () => {
     const row = list.find(item => String(item.gokid) === button.dataset.aliasEdit);
     state.editingId = String(row.gokid);
     byId("alias-edit-meta").textContent = `营地 ID ${row.gokid}${row.role_name ? ` · 游戏角色 ${row.role_name}` : ""}`;
-    byId("alias-edit-name").value = row.name;
+    byId("alias-edit-name").value = row.alias || "";
     byId("alias-edit-mask").hidden = false;
     byId("alias-edit-name").focus();
   }));
@@ -541,12 +560,11 @@ function initAliases() {
   byId("alias-edit-form").addEventListener("submit", async event => {
     event.preventDefault();
     const name = byId("alias-edit-name").value.trim();
-    if (!name) { showToast("请输入显示名称", "error"); return; }
     byId("alias-edit-save").disabled = true;
     try {
-      await bridge.apiPost("aliases/update", { gokid: Number(state.editingId), name });
+      await bridge.apiPost("aliases/update", { gokid: Number(state.editingId), alias: name });
       byId("alias-edit-mask").hidden = true;
-      showToast("角色显示名称已保存", "success");
+      showToast("角色别名已保存", "success");
       await searchAliases();
     } catch (error) { showToast(`修改失败：${errorText(error)}`, "error"); }
     finally { byId("alias-edit-save").disabled = false; }

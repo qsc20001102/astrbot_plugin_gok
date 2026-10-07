@@ -38,7 +38,7 @@ class WebUIService:
             ("accounts/check", self.accounts_check, ["POST"], "逐个验证营地登录态"),
             ("query", self.query_player, ["GET"], "按营地ID或别名查询玩家"),
             ("aliases/list", self.aliases_list, ["GET"], "列出角色别名"),
-            ("aliases/update", self.aliases_update, ["POST"], "修改角色显示名称"),
+            ("aliases/update", self.aliases_update, ["POST"], "设置或清除角色别名"),
             ("aliases/delete", self.aliases_delete, ["POST"], "删除角色别名"),
         )
         for path, handler, methods, description in routes:
@@ -242,6 +242,9 @@ class WebUIService:
         limit = query.get("limit", 10, type=int)
         index = query.get("index", 1, type=int)
         game_seq = str(query.get("game_seq", "") or "").strip()
+        option = query.get("option", 0, type=int)
+        if option not in (0, 1, 4):
+            return error_response("option 只支持 0 / 1 / 4", status_code=400)
 
         if not keyword:
             return error_response("请提供营地 ID 或别名", status_code=400)
@@ -259,12 +262,28 @@ class WebUIService:
                     keyword, index, game_seq=game_seq
                 )
             else:
-                result = await self.service.battle_report(keyword, limit=limit)
+                result = await self.service.battle_report(
+                    keyword, limit=limit, option=option
+                )
         except Exception as exc:  # noqa: BLE001
             logger.exception("网页查询失败")
             return error_response(f"查询失败：{type(exc).__name__}", status_code=500)
 
         if result.get("code") != 200:
+            candidates = result.get("data", {}).get("candidates")
+            if candidates:
+                return json_response(
+                    {
+                        "status": "ok",
+                        "data": {
+                            "type": "selection",
+                            "query_type": kind,
+                            "keyword": keyword,
+                            "option": option,
+                            "data": {"candidates": candidates},
+                        },
+                    }
+                )
             return error_response(str(result.get("msg") or "查询失败"), status_code=400)
         # The host unwraps top-level data; keep metadata inside an explicit envelope.
         return json_response(
@@ -291,7 +310,13 @@ class WebUIService:
         except ValueError as exc:
             return error_response(str(exc), status_code=400)
         gokid = self._int_param(payload, "gokid")
-        name = self._str_param(payload, "name")
+        if "alias" not in payload:
+            return error_response("请提供别名，留空可清除别名", status_code=400)
+        if any(key in payload for key in ("name", "role_name", "camp_id")):
+            return error_response(
+                "营地 ID 和游戏昵称不可修改，只能设置别名", status_code=400
+            )
+        name = self._str_param(payload, "alias")
         if not gokid:
             return error_response("请提供营地 ID", status_code=400)
         result = await self.service.update_alias(gokid, name)

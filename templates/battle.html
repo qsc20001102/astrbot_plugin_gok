@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>战绩查询</title>
+<title>{{ data.query_title or "全部战绩" }}</title>
 <style>
   :root {
     --gold: #e8c37a;
@@ -45,11 +45,12 @@
     border: 2px solid var(--gold-dim);
     background: #253050;
     display: flex; align-items: center; justify-content: center;
-    font-size: 31.2px; color: var(--gold);
+    font-size: 37.4px; color: var(--gold);
   }
   .who { flex: 1; }
-  .who .name { font-size: 26px; font-weight: 600; letter-spacing: .5px; }
-  .who .meta { font-size: 15.6px; color: var(--muted); margin-top: 5px; }
+  .query-title { font-size: 24px; font-weight: 600; color: var(--gold); margin-bottom: 14px; }
+  .who .name { font-size: 31.2px; font-weight: 600; letter-spacing: .5px; }
+  .who .meta { font-size: 18.7px; color: var(--muted); margin-top: 5px; }
   .who .meta em { color: var(--gold); font-style: normal; }
   .rank-box {
     text-align: right;
@@ -57,10 +58,10 @@
     border-left: 1px solid #2b3752;
   }
   .rank-box { display: flex; flex: 0 0 170px; flex-direction: column; align-items: center; text-align: center; }
-  .rank-box .rank { font-size: 22px; color: var(--gold); font-weight: 600; }
+  .rank-box .rank { font-size: 26.4px; color: var(--gold); font-weight: 600; }
   .rank-emblem { width: 148px; height: 118px; object-fit: contain; }
   .rank-stars { width: 144px; height: 35px; object-fit: contain; margin-bottom: -12px; position: relative; z-index: 1; }
-  .rank-box .stars { font-size: 15.6px; color: var(--muted); margin-top: 4px; }
+  .rank-box .stars { font-size: 18.7px; color: var(--muted); margin-top: 4px; }
 
   .summary { display: flex; gap: 10px; margin-bottom: 14px; }
   .stat {
@@ -71,8 +72,8 @@
     padding: 10px 12px;
     text-align: center;
   }
-  .stat .v { font-size: 26px; font-weight: 700; }
-  .stat .k { font-size: 14.3px; color: var(--muted); margin-top: 3px; letter-spacing: .5px; }
+  .stat .v { font-size: 31.2px; font-weight: 700; }
+  .stat .k { font-size: 17.2px; color: var(--muted); margin-top: 3px; letter-spacing: .5px; }
   .stat .v.win { color: var(--win); }
   .stat .v.lose { color: var(--lose); }
   .stat .v.gold { color: var(--gold); }
@@ -81,40 +82,41 @@
   thead th {
     background: #1c2438;
     color: var(--muted);
-    font-size: 14.3px;
+    font-size: 17.2px;
     font-weight: 600;
     letter-spacing: .5px;
     padding: 9px 8px;
     text-align: center;
     white-space: nowrap;
   }
-  tbody td { padding: 8px; font-size: 16.2px; text-align: center; border-top: 1px solid #212b42; }
+  tbody td { padding: 8px; font-size: 19.4px; text-align: center; border-top: 1px solid #212b42; }
   tbody tr:nth-child(even) { background: #1a2233; }
   tr.win { box-shadow: inset 4px 0 0 var(--win); }
   tr.lose { box-shadow: inset 4px 0 0 var(--lose); }
   .hero { display: flex; align-items: center; gap: 8px; text-align: left; }
   .hero img { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #33405e; object-fit: cover; }
-  .hero .hero-name { font-size: 16.9px; }
-  .hero .mode { font-size: 13.7px; color: var(--muted); margin-top: 2px; }
+  .hero .hero-name { font-size: 20.3px; }
+  .hero .mode { font-size: 16.4px; color: var(--muted); margin-top: 2px; }
   .res { font-weight: 700; }
   .res.win { color: var(--win); }
   .res.lose { color: var(--lose); }
-  .kda { font-family: Consolas, monospace; font-size: 16.9px; }
+  .kda { font-family: Consolas, monospace; font-size: 20.3px; }
   .kda i { font-style: normal; color: var(--muted); margin: 0 2px; }
   .kda .d { color: var(--lose); }
   .score { font-weight: 700; color: var(--gold); }
-  .honor { font-size: 14.3px; color: var(--gold-dim); line-height: 1.4; }
+  .honor { font-size: 17.2px; color: var(--gold-dim); line-height: 1.4; }
   .honor { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 94px; }
   .honor img { height: 35px; max-width: 94px; object-fit: contain; vertical-align: middle; }
   .mvp { color: #ffd479; font-weight: 700; }
   .svp { color: #a9c6ff; font-weight: 700; }
-  .time { font-size: 14.3px; color: var(--muted); line-height: 1.4; }
-  .foot { margin-top: 12px; text-align: right; font-size: 14.3px; color: #6b7893; }
+  .time { font-size: 17.2px; color: var(--muted); line-height: 1.4; }
+  .foot { margin-top: 12px; text-align: right; font-size: 17.2px; color: #6b7893; }
 </style>
 </head>
 <body>
   {% set p = data.profile %}
   {% set s = data.summary %}
+  <div class="query-title">{{ data.query_title or '全部战绩' }}</div>
   <div class="player">
     {% if p.avatar %}
       <img class="avatar" src="{{ p.avatar }}" alt="">
@@ -187,7 +189,7 @@
           </div>
         </td>
         <td>{{ m.duration_text }}</td>
-        <td style="font-size:14.3px">
+        <td style="font-size: 17.2px">
           {{ m.rank_name or '-' }}
           {% if m.rank_name and m.stars is not none %}<div style="color:#93a0bb">{{ m.stars }}星</div>{% endif %}
           {% if m.mode == 'peak' and m.peak_delta is not none %}<div>{{ '+' if m.peak_delta >= 0 else '' }}{{ m.peak_delta }} 分</div>{% endif %}

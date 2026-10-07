@@ -151,13 +151,12 @@ def build_encode_param(
     )
 
 
-def decode_camp_payload(text: str, user_key: str) -> str:
+def decode_camp_payload(
+    text: str, user_key: str, *, binary: bool = False
+) -> str | bytes:
     """解密营地加密响应体（响应头 `campencrypt: true` 时）。"""
     if not user_key:
         raise ValueError("响应已加密，但登录态缺少 userKey")
     raw = base64.b64decode(text.strip())
-    return (
-        xxtea.decrypt(raw, user_key.encode("utf-8"))
-        .decode("utf-8", "replace")
-        .rstrip("\x00")
-    )
+    decrypted = xxtea.decrypt(raw, user_key.encode("utf-8"))
+    return decrypted if binary else decrypted.decode("utf-8", "replace").rstrip("\x00")

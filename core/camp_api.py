@@ -11,6 +11,7 @@ import asyncio
 from typing import Any
 
 from .camp_client import CampClient
+from .camp_search import build_search_request
 
 __all__ = [
     "CampDataApi",
@@ -46,6 +47,20 @@ class CampDataApi:
     def __init__(self, client: CampClient) -> None:
         self.client = client
 
+    async def search_users(self, nickname: str) -> list[dict[str, Any]]:
+        """Search Camp for users matching a nickname.
+
+        Args:
+            nickname: Search text.
+
+        Returns:
+            Candidate users with Camp IDs and display metadata.
+        """
+        payload = await self.client.request(
+            "/search/getbytype", build_search_request(nickname), protobuf=True
+        )
+        return _as_list(_unwrap(payload).get("users"))
+
     # ------------------------------------------------------------------ 玩家资料
     async def get_profile(self, camp_id: str) -> dict[str, Any]:
         """查询玩家资料（含段位、角色列表、头像）。"""
@@ -69,7 +84,7 @@ class CampDataApi:
 
     # ------------------------------------------------------------------ 战绩列表
     async def get_battle_list(
-        self, camp_id: str, last_time: int | str = 0
+        self, camp_id: str, last_time: int | str = 0, *, option: int = 0
     ) -> dict[str, Any]:
         """拉取一页战绩。`lastTime` 传上一页返回的游标。"""
         return await self.client.request(
@@ -79,7 +94,7 @@ class CampDataApi:
                 "recommendPrivacy": 0,
                 "apiVersion": 5,
                 "friendUserId": camp_id,
-                "option": 0,
+                "option": option,
             },
         )
 
@@ -90,6 +105,7 @@ class CampDataApi:
         max_pages: int = BATTLE_QUERY_MAX_PAGES,
         max_matches: int = BATTLE_QUERY_MAX_MATCHES,
         page_delay: float = BATTLE_PAGE_DELAY_SECONDS,
+        option: int = 0,
     ) -> dict[str, Any]:
         """Fetch recent matches directly from Camp, following its page cursor.
 
@@ -113,7 +129,7 @@ class CampDataApi:
             if pages > 0 and page_delay > 0:
                 await asyncio.sleep(page_delay)
 
-            payload = await self.get_battle_list(camp_id, last_time)
+            payload = await self.get_battle_list(camp_id, last_time, option=option)
             data = _unwrap(payload)
             page_items = _as_list(data.get("list")) or _as_list(data.get("battle_list"))
 

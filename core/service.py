@@ -99,24 +99,36 @@ class GokService:
         text = (keyword or "").strip()
         if not text:
             return None, self.err("请提供营地 ID 或已保存的角色别名")
-        if text.isdigit() and not 5 <= len(text) <= 15:
-            return None, self.err("营地 ID 应为 5~15 位数字")
-        camp_id = await self.resolve_camp_id(text)
-        if camp_id is None:
-            matches = await self.storage.find_aliases(text)
-            exact = [
-                row for row in matches if text in (row["name"], row.get("role_name"))
+        if text.isdigit():
+            if not text.isascii() or not 5 <= len(text) <= 15:
+                return None, self.err("营地 ID 应为 5~15 位数字")
+            return int(text), None
+        rows = await self.storage.find_aliases(text, exact=True)
+        if rows:
+            candidates = [
+                {
+                    "uid": str(row["gokid"]),
+                    "name": row["role_name"] or row["alias"],
+                    "alias": row["alias"],
+                    "region": "",
+                    "dw": "",
+                }
+                for row in rows
             ]
-            candidates = exact or matches
-            if len(candidates) > 1:
-                return None, self.err(
-                    f"「{text}」匹配多个角色，请使用营地 ID 查询："
-                    + "、".join(str(row["gokid"]) for row in candidates[:10])
-                )
+        else:
+            try:
+                candidates = await self.api.search_users(text)
+            except CampApiError as exc:
+                return None, self.err(self.error_message(exc))
+        if not candidates:
             return None, self.err(
-                f"未找到「{text}」对应的营地 ID，请先用营地 ID 查询，成功后会自动保存角色名称"
+                f"没有搜索到「{text}」对应的营地用户，请检查昵称或使用营地 ID"
             )
-        return camp_id, None
+        if len(candidates) == 1:
+            return int(candidates[0]["uid"]), None
+        result = self.err(f"「{text}」匹配多个角色，请选择要查询的用户")
+        result["data"] = {"candidates": candidates}
+        return None, result
 
     # ------------------------------------------------------------------ 数据获取
     async def _load_profile(
@@ -149,12 +161,12 @@ class GokService:
         return profile, season, None
 
     async def _load_matches(
-        self, camp_id: str, *, max_matches: int = MAX_MATCHES_PER_QUERY
+        self, camp_id: str, *, max_matches: int = MAX_MATCHES_PER_QUERY, option: int = 0
     ) -> tuple[list[MatchRecord], ServiceResult | None]:
         """实时拉取战绩列表（无缓存、不做增量）。"""
         try:
             result = await self.api.fetch_battles(
-                camp_id, max_matches=max(1, max_matches)
+                camp_id, max_matches=max(1, max_matches), option=option
             )
         except CampApiError as exc:
             return [], self.err(self.error_message(exc))
@@ -181,11 +193,15 @@ class GokService:
             "season_name": season.season_name if season else "",
             "hide_match": profile.hide_match,
         }
-        await self._remember_player(keyword, profile)
+        await self._remember_player(profile)
         return self.ok(data, temp="profile.html")
 
-    async def battle_report(self, keyword: str, limit: int = 10) -> ServiceResult:
+    async def battle_report(
+        self, keyword: str, limit: int = 10, *, option: int = 0
+    ) -> ServiceResult:
         """「战绩」：最近对局列表 + 汇总 + 锐评数据。"""
+        if option not in (0, 1, 4):
+            return self.err("不支持的战绩类型")
         camp_id, error = await self.require_camp_id(keyword)
         if error:
             return error
@@ -197,10 +213,13 @@ class GokService:
         assert profile is not None
 
         matches, error = await self._load_matches(
-            str(camp_id), max_matches=max(limit, MAX_MATCHES_PER_QUERY)
+            str(camp_id), max_matches=max(limit, MAX_MATCHES_PER_QUERY), option=option
         )
         if error:
             return error
+        if option:
+            mode = {1: "ranked", 4: "peak"}[option]
+            matches = [match for match in matches if match.mode == mode]
         if not matches:
             # 营地对隐藏战绩不返回错误码，而是在角色资料里给出 hideMatch=1
             if profile.hide_match:
@@ -223,6 +242,8 @@ class GokService:
         data = {
             "profile": profile.to_dict(),
             "list": [m.to_dict() for m in shown],
+            "option": option,
+            "query_title": {0: "全部战绩", 1: "排位战绩", 4: "巅峰战绩"}[option],
             "summary": {
                 "total": total,
                 "wins": wins,
@@ -236,7 +257,7 @@ class GokService:
             },
             "comment": build_battle_comment(shown, limit=len(shown)),
         }
-        await self._remember_player(keyword, profile)
+        await self._remember_player(profile)
         return self.ok(data, temp="battle.html")
 
     async def battle_detail(
@@ -295,17 +316,16 @@ class GokService:
         data["profile"] = profile.to_dict()
         data["index"] = position
         data["total"] = len(matches)
-        await self._remember_player(keyword, profile)
+        await self._remember_player(profile)
         return self.ok(data, temp="detail.html")
 
-    async def _remember_player(self, keyword: str, profile: PlayerProfile) -> None:
-        """Persist role-name mappings after successful numeric-ID queries.
+    async def _remember_player(self, profile: PlayerProfile) -> None:
+        """Persist real nicknames after successful queries through either input path.
 
         Args:
-            keyword: User query, which can be an ID or a saved name.
             profile: Successfully retrieved player profile.
         """
-        if keyword.strip().isdigit() and profile.nickname not in {
+        if profile.nickname not in {
             "",
             "未知",
             f"营地{profile.camp_id}",
@@ -315,13 +335,11 @@ class GokService:
     # ------------------------------------------------------------------ 别名管理
     async def update_alias(self, gokid: int, name: str) -> ServiceResult:
         name = (name or "").strip()
-        if not name:
-            return self.err("请提供新的显示名称")
         if len(name) > 80:
-            return self.err("显示名称最多 80 个字符")
+            return self.err("别名最多 80 个字符")
         if not await self.storage.update_alias(int(gokid), name):
             return self.err(f"没有找到营地 ID：{gokid}")
-        return self.ok(f"角色显示名称已修改\n营地 ID：{gokid}\n显示名称：{name}")
+        return self.ok(f"角色别名已更新\n营地 ID：{gokid}\n别名：{name or '未设置'}")
 
     async def delete_alias(self, gokid: int) -> ServiceResult:
         if not await self.storage.delete_alias(int(gokid)):
@@ -331,7 +349,7 @@ class GokService:
     async def list_aliases(self) -> ServiceResult:
         aliases = await self.storage.list_aliases()
         if not aliases:
-            return self.err("还没有保存角色名称，请先使用营地 ID 查询资料或战绩")
+            return self.err("还没有保存角色，请先使用营地 ID 或昵称查询资料、战绩")
         return self.ok({"list": aliases}, temp="aliases.html")
 
     async def search_aliases(self, keyword: str) -> ServiceResult:

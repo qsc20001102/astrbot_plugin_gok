@@ -117,6 +117,9 @@ class AstrMessageEvent:
     def should_call_llm(self, call_llm: bool) -> None:
         self.llm_blocked = call_llm
 
+    def get_sender_id(self) -> str:
+        return getattr(self, "sender_id", "test-sender")
+
     def plain_result(self, text: str) -> _Result:
         return _Result("plain", text)
 
@@ -274,6 +277,45 @@ def install_stubs() -> None:
     event = types.ModuleType("astrbot.api.event")
     star = types.ModuleType("astrbot.api.star")
     web = types.ModuleType("astrbot.api.web")
+    core = types.ModuleType("astrbot.core")
+    utils = types.ModuleType("astrbot.core.utils")
+    waiter = types.ModuleType("astrbot.core.utils.session_waiter")
+
+    class SessionFilter:
+        def filter(self, event):
+            return event.unified_msg_origin
+
+    class SessionController:
+        def __init__(self):
+            self.future = asyncio.get_running_loop().create_future()
+
+        def stop(self):
+            if not self.future.done():
+                self.future.set_result(None)
+
+    waiter.USER_SESSIONS = {}
+
+    def session_waiter(timeout=30, record_history_chains=False):
+        def decorate(handler):
+            async def wait(event, session_filter=None):
+                selector = session_filter or SessionFilter()
+                key = selector.filter(event)
+                controller = SessionController()
+                entry = (controller, handler, selector)
+                waiter.USER_SESSIONS[key] = entry
+                try:
+                    await asyncio.wait_for(controller.future, timeout)
+                finally:
+                    if waiter.USER_SESSIONS.get(key) is entry:
+                        waiter.USER_SESSIONS.pop(key)
+
+            return wait
+
+        return decorate
+
+    waiter.SessionController = SessionController
+    waiter.SessionFilter = SessionFilter
+    waiter.session_waiter = session_waiter
 
     class AstrBotConfig(dict):
         pass
@@ -304,6 +346,9 @@ def install_stubs() -> None:
             "astrbot.api.event": event,
             "astrbot.api.star": star,
             "astrbot.api.web": web,
+            "astrbot.core": core,
+            "astrbot.core.utils": utils,
+            "astrbot.core.utils.session_waiter": waiter,
         }
     )
 
@@ -343,7 +388,7 @@ async def run_tests() -> None:
 
 async def exercise(plugin, context, module, config) -> None:
     print("\n[装配]")
-    check("指令表已填充", len(plugin.command_map) == 8, str(len(plugin.command_map)))
+    check("指令表已填充", len(plugin.command_map) == 10, str(len(plugin.command_map)))
     check("页面路由已注册", len(context.routes) == 12, str(len(context.routes)))
     route_paths = {r[0] for r in context.routes}
     for expected in (
@@ -432,7 +477,7 @@ async def exercise(plugin, context, module, config) -> None:
 
     event9 = AstrMessageEvent("资料 不存在的别名")
     await anext_result(plugin.on_all_message(event9))
-    check("未知别名给出提示", "未找到" in event9.texts(), event9.texts())
+    check("库中无名称时在线搜索需要登录", "扫码登录" in event9.texts(), event9.texts())
 
     event10 = AstrMessageEvent("这是一句普通聊天")
     results10 = [r async for r in plugin.on_all_message(event10)]
@@ -663,7 +708,7 @@ async def exercise(plugin, context, module, config) -> None:
     check("dashboard 含账号信息", "accounts" in dash)
 
     await plugin.storage.remember_player(555666777, "自动保存")
-    request_stub.set_json({"gokid": 555666777, "name": "管理页修改"})
+    request_stub.set_json({"gokid": 555666777, "alias": "管理页修改"})
     added = await handler_for("aliases/update")()
     check(
         "管理页可修改显示名称",
@@ -672,7 +717,7 @@ async def exercise(plugin, context, module, config) -> None:
     listed = json.loads((await handler_for("aliases/list")()).body)
     check(
         "页面可列出别名",
-        any(row.get("name") == "管理页修改" for row in listed.get("list", [])),
+        any(row.get("alias") == "管理页修改" for row in listed.get("list", [])),
     )
 
     request_stub.set_json({"gokid": 555666777})

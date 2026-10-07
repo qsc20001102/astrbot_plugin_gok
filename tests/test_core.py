@@ -361,7 +361,7 @@ async def test_storage() -> None:
         check(
             "别名解析（按 ID）", await storage.resolve_gokid("987654321") == 987654321
         )
-        check("别名解析（模糊）", await storage.resolve_gokid("小") == 123456789)
+        check("查询名称不自动使用模糊匹配", await storage.resolve_gokid("小") is None)
         check("别名解析（不存在）", await storage.resolve_gokid("不存在的人") is None)
         check("修改别名", await storage.update_alias(123456789, "小红"))
         check("修改后名称生效", await storage.resolve_gokid("小红") == 123456789)
@@ -908,7 +908,7 @@ async def test_name_mapping_and_match_identity() -> None:
         row = (await storage.list_aliases())[0]
         check(
             "旧名称表迁移保留用户名字和创建时间",
-            row["name"] == "旧别名"
+            row["alias"] == "旧别名"
             and row["role_name"] == "游戏真名"
             and row["created_at"] == 1,
         )
@@ -923,7 +923,7 @@ async def test_name_mapping_and_match_identity() -> None:
         row = (await storage.find_aliases("再次游戏改名"))[0]
         check(
             "管理员名称不会被自动查询覆盖",
-            row["name"] == "管理页名字" and row["role_name"] == "再次游戏改名",
+            row["alias"] == "管理页名字" and row["role_name"] == "再次游戏改名",
         )
         await storage.delete_alias(489048724)
 

@@ -27,15 +27,15 @@
     padding: 14px 18px; margin-bottom: 14px;
     display: flex; align-items: center; justify-content: space-between;
   }
-  .head .t { font-size: 23.4px; font-weight: 600; }
-  .head .t small { font-size: 15.6px; color: var(--muted); margin-left: 10px; font-weight: 400; }
-  .head .res { font-size: 26px; font-weight: 700; }
+  .head .t { font-size: 28.1px; font-weight: 600; }
+  .head .t small { font-size: 18.7px; color: var(--muted); margin-left: 10px; font-weight: 400; }
+  .head .res { font-size: 31.2px; font-weight: 700; }
   .head .res.win { color: #5fce8f; }
   .head .res.lose { color: #e2685f; }
 
   .team { margin-bottom: 14px; }
   .team-title {
-    font-size: 16.9px; font-weight: 600; letter-spacing: 1px;
+    font-size: 20.3px; font-weight: 600; letter-spacing: 1px;
     padding: 6px 12px; border-radius: 8px 8px 0 0;
     display: flex; align-items: center; gap: 8px;
   }
@@ -44,24 +44,24 @@
 
   table { width: 100%; border-collapse: collapse; background: var(--panel); }
   thead th {
-    background: #1c2438; color: var(--muted); font-size: 14.3px;
+    background: #1c2438; color: var(--muted); font-size: 17.2px;
     padding: 8px 6px; text-align: center; font-weight: 600; white-space: nowrap;
   }
-  tbody td { padding: 7px 6px; font-size: 16.2px; text-align: center; border-top: 1px solid #212b42; }
+  tbody td { padding: 7px 6px; font-size: 19.4px; text-align: center; border-top: 1px solid #212b42; }
   tbody tr:nth-child(even) { background: #1a2233; }
   tbody tr.target { background: rgba(232,195,122,.13); box-shadow: inset 3px 0 0 var(--gold); }
   .hero { display: flex; align-items: center; gap: 8px; text-align: left; }
-  .hero img { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #33405e; }
-  .hero .nm { font-size: 16.2px; }
-  .hero .hd { font-size: 13.7px; color: var(--muted); margin-top: 1px; }
+  .hero img { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #33405e; }
+  .hero .nm { font-size: 19.4px; }
+  .hero .hd { font-size: 16.4px; color: var(--muted); margin-top: 1px; }
   .num { font-family: Consolas, monospace; }
   .kda i { font-style: normal; color: var(--muted); margin: 0 2px; }
   .kda .d { color: #e2685f; }
-  .foot { margin-top: 12px; text-align: right; font-size: 14.3px; color: #6b7893; }
-  .equipment { display: grid; grid-template-columns: repeat(3, 27px); gap: 3px; min-width: 87px; }
-  .equipment img { width: 27px; height: 27px; object-fit: contain; border-radius: 4px; background: #253050; }
-  .equipment .placeholder { display: flex; align-items: center; justify-content: center; width: 27px; height: 27px; font-size: 13px; background: #253050; }
-  .empty { padding: 30px; text-align: center; color: var(--muted); font-size: 16.9px; }
+  .foot { margin-top: 12px; text-align: right; font-size: 17.2px; color: #6b7893; }
+  .equipment { display: grid; grid-template-columns: repeat(6, 32px); gap: 4px; min-width: 212px; }
+  .equipment img { width: 32px; height: 32px; object-fit: contain; border-radius: 4px; background: #253050; }
+  .equipment .placeholder { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; font-size: 15.6px; background: #253050; }
+  .empty { padding: 30px; text-align: center; color: var(--muted); font-size: 20.3px; }
 </style>
 </head>
 <body>
@@ -73,7 +73,7 @@
     </div>
     <div>
       <span class="res {{ 'win' if m.win else 'lose' }}">{{ m.result_text }}</span>
-      <span style="color:#93a0bb;font-size:16.9px;margin-left:10px">
+      <span style="color:#93a0bb;font-size: 20.3px;margin-left:10px">
         {{ m.kills }} / {{ m.deaths }} / {{ m.assists }} · 评分 {{ m.score_text }}
       </span>
     </div>

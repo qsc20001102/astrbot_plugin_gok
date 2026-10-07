@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -18,6 +19,11 @@ from typing import Any
 from astrbot.api import AstrBotConfig, logger
 from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, StarTools, register
+from astrbot.core.utils.session_waiter import (
+    SessionController,
+    SessionFilter,
+    session_waiter,
+)
 
 from .core.camp_api import CampDataApi
 from .core.camp_auth import CampAuthStore
@@ -32,6 +38,22 @@ from .core.storage import GokStorage
 from .core.webui import WebUIService
 
 PLUGIN_NAME = "astrbot_plugin_gok"
+PLAYER_SELECTION_TIMEOUT = 60
+
+
+class PlayerSelectionFilter(SessionFilter):
+    """Keep candidate selection isolated by conversation and sender."""
+
+    def filter(self, event: AstrMessageEvent) -> str:
+        """Build an isolated session identifier.
+
+        Args:
+            event: Incoming message event.
+
+        Returns:
+            Conversation and sender identifier for this plugin.
+        """
+        return f"gok-select:{event.unified_msg_origin}:{event.get_sender_id()}"
 
 
 @register(
@@ -53,6 +75,8 @@ class GokPlugin(Star):
 
         # 指令表先置空，保证 initialize 完成前的消息处理是安全的
         self.command_map: dict[str, Any] = {}
+        self._selection_tasks: set[asyncio.Task] = set()
+        self._pending_choices: set[str] = set()
 
         self._setup_config()
         self._setup_paths()
@@ -158,6 +182,13 @@ class GokPlugin(Star):
 
     async def terminate(self) -> None:
         """插件卸载/停用时释放资源。"""
+        selection_tasks = tuple(self._selection_tasks)
+        for task in selection_tasks:
+            task.cancel()
+        if selection_tasks:
+            await asyncio.gather(*selection_tasks, return_exceptions=True)
+        self._selection_tasks.clear()
+        self._pending_choices.clear()
         if getattr(self, "http", None) is not None:
             await self.http.close()
             self.http = None
@@ -174,6 +205,8 @@ class GokPlugin(Star):
             "帮助": self.cmd_helps,
             # 查询
             "战绩": self.cmd_battle,
+            "排位战绩": self.cmd_battle,
+            "巅峰战绩": self.cmd_battle,
             "资料": self.cmd_profile,
             "对局": self.cmd_detail,
             # 角色别名
@@ -294,18 +327,114 @@ class GokPlugin(Star):
             await event.send(event.plain_result("处理失败，请稍后再试"))
 
     # ------------------------------------------------------------------ 指令实现
+    async def _resolve_query_player(
+        self, event: AstrMessageEvent, name: str
+    ) -> str | None:
+        """Resolve a name, waiting for a numbered selection when ambiguous.
+
+        Args:
+            event: Original query event.
+            name: Camp ID, alias, or nickname.
+
+        Returns:
+            Selected Camp ID, or None after an error, cancellation, or timeout.
+        """
+        camp_id, error = await self.service.require_camp_id(name)
+        if camp_id is not None:
+            return str(camp_id)
+        candidates = (error or {}).get("data", {}).get("candidates", [])
+        if not candidates:
+            await self.sender.plain(event, error or self.service.err("未找到用户"))
+            return None
+        session_filter = PlayerSelectionFilter()
+        session_id = session_filter.filter(event)
+        if session_id in self._pending_choices:
+            await event.send(
+                event.plain_result("已有待选择的查询，请先回复序号或发送取消")
+            )
+            return None
+        self._pending_choices.add(session_id)
+        selected: str | None = None
+
+        @session_waiter(timeout=PLAYER_SELECTION_TIMEOUT, record_history_chains=False)
+        async def choose(controller: SessionController, reply: AstrMessageEvent):
+            """Accept one numbered reply without extending the original deadline.
+
+            Args:
+                controller: Host session controller.
+                reply: Reply from the original sender and conversation.
+
+            Returns:
+                None. Stops the controller after a selection or cancellation.
+            """
+            nonlocal selected
+            reply.should_call_llm(True)
+            text = reply.message_str.strip()
+            if text in {"取消", "退出"}:
+                controller.stop()
+                await reply.send(reply.plain_result("已取消查询"))
+                return
+            if (
+                not text.isascii()
+                or not text.isdigit()
+                or not 1 <= int(text) <= len(candidates)
+            ):
+                await reply.send(
+                    reply.plain_result(f"请回复 1~{len(candidates)} 的序号，或发送取消")
+                )
+                return
+            selected = str(candidates[int(text) - 1]["uid"])
+            controller.stop()
+
+        task = asyncio.create_task(choose(event, session_filter=session_filter))
+        self._selection_tasks.add(task)
+        try:
+            # Register before prompting so a fast reply cannot miss the waiter.
+            await asyncio.sleep(0)
+            lines = [f"「{name}」有 {len(candidates)} 个匹配用户："]
+            for index, user in enumerate(candidates, 1):
+                details = " · ".join(
+                    str(user.get(key) or "")
+                    for key in ("region", "dw")
+                    if user.get(key)
+                )
+                alias = f" · 别名 {user['alias']}" if user.get("alias") else ""
+                lines.append(
+                    f"{index}. {user.get('name') or '未知角色'} · 营地 ID {user['uid']}{alias}"
+                    + (f" · {details}" if details else "")
+                )
+            lines.append(
+                f"请在 {PLAYER_SELECTION_TIMEOUT} 秒内回复序号；发送“取消”结束查询。"
+            )
+            await event.send(event.plain_result("\n".join(lines)))
+            await task
+        except TimeoutError:
+            await event.send(
+                event.plain_result("选择已超时，本次查询已结束，请重新发送查询指令")
+            )
+        finally:
+            if not task.done():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            self._selection_tasks.discard(task)
+            self._pending_choices.discard(session_id)
+        return selected
+
     async def cmd_helps(self, event: AstrMessageEvent) -> None:
         """功能说明。"""
         prefix = self.prefix_text if self.prefix_enabled else ""
         text = (
             "王者营地查询\n"
-            f"{prefix}战绩 营地ID/角色名 [场数]：最近战绩\n"
+            f"{prefix}战绩 营地ID/别名/昵称 [场数]：全部模式战绩\n"
+            f"{prefix}排位战绩 营地ID/别名/昵称 [场数]：排位战绩\n"
+            f"{prefix}巅峰战绩 营地ID/别名/昵称 [场数]：巅峰战绩\n"
             f"{prefix}资料 营地ID/角色名：角色与赛季资料\n"
             f"{prefix}对局 营地ID/角色名 [序号]：双方对局详情与出装\n"
             f"{prefix}角色查看：查看已保存的角色名称与ID\n"
             f"{prefix}功能：查看本说明\n"
             f"{prefix}营地登录 / {prefix}营地账号：查看账号状态\n"
-            "首次查询请在插件管理页微信扫码登录；ID查询成功会自动保存角色名称。\n"
+            "名称先匹配别名、再匹配游戏昵称，库中没有时在线搜索；多结果回复序号选择。\n"
+            "查询成功会自动保存营地 ID 与真实游戏昵称；人工别名在管理页设置。\n"
             "战绩、资料、对局可在插件配置中选择图片或文本输出。"
         )
         if self.comment_enabled:
@@ -319,14 +448,21 @@ class GokPlugin(Star):
         if not name:
             await event.send(
                 event.plain_result(
-                    "请提供营地 ID 或角色别名，例如：战绩 123456789\n"
-                    "使用营地 ID 查询成功后会自动保存游戏角色名称。"
+                    "请提供营地 ID、别名或昵称，例如：战绩 123456789\n"
+                    "查询成功后会自动保存营地 ID 和真实游戏昵称。"
                 )
             )
             return
+        command = (self.resolve_command(event) or ("战绩", [], None))[0]
+        option = {"排位战绩": 1, "巅峰战绩": 4}.get(command, 0)
+        camp_id = await self._resolve_query_player(event, name)
+        if camp_id is None:
+            return
         result = await self.sender.run(
             event,
-            lambda: self.service.battle_report(name, limit=limit or self.default_limit),
+            lambda: self.service.battle_report(
+                camp_id, limit=limit or self.default_limit, option=option
+            ),
             style=self.query_output,
         )
         if self.comment_enabled and result and result.get("code") == 200:
@@ -342,12 +478,15 @@ class GokPlugin(Star):
         """资料 [营地ID/别名]。"""
         if not name:
             await event.send(
-                event.plain_result("请提供营地 ID 或角色别名，例如：资料 123456789")
+                event.plain_result("请提供营地 ID、别名或昵称，例如：资料 123456789")
             )
+            return
+        camp_id = await self._resolve_query_player(event, name)
+        if camp_id is None:
             return
         await self.sender.run(
             event,
-            lambda: self.service.player_overview(name),
+            lambda: self.service.player_overview(camp_id),
             style=self.query_output,
         )
 
@@ -357,12 +496,15 @@ class GokPlugin(Star):
         """对局 [营地ID/别名] [序号]。"""
         if not name:
             await event.send(
-                event.plain_result("请提供营地 ID 或角色别名，例如：对局 123456789 1")
+                event.plain_result("请提供营地 ID、别名或昵称，例如：对局 123456789 1")
             )
+            return
+        camp_id = await self._resolve_query_player(event, name)
+        if camp_id is None:
             return
         await self.sender.run(
             event,
-            lambda: self.service.battle_detail(name, index),
+            lambda: self.service.battle_detail(camp_id, index),
             style=self.query_output,
         )
 

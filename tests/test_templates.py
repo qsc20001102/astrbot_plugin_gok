@@ -233,7 +233,7 @@ CASES: dict[str, dict] = {
         "red": [],
     },
     "aliases.html": {
-        "list": [{"gokid": 123456789, "name": "小明"}],
+        "list": [{"gokid": 123456789, "role_name": "小明", "alias": "朋友"}],
         "keyword": "",
     },
     "aliases_search.html": {

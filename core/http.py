@@ -1,7 +1,7 @@
 """轻量 aiohttp 客户端：单会话复用、超时、统一返回结构。
 
 营地接口的响应体既可能是 JSON，也可能是 XXTEA 密文，且关键状态放在响应头里，
-因此这里返回「状态码 + 响应头 + 原始文本」，由上层决定如何解析。
+因此这里返回状态码、响应头、原始文本与字节，由上层决定如何解析。
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ MAX_BODY_BYTES = 32 * 1024 * 1024
 class HttpResponse:
     """一次 HTTP 调用的结果。"""
 
-    __slots__ = ("status", "headers", "text", "error")
+    __slots__ = ("status", "headers", "text", "error", "body")
 
     def __init__(
         self,
@@ -30,6 +30,7 @@ class HttpResponse:
         headers: Mapping[str, str] | None = None,
         text: str = "",
         error: str = "",
+        body: bytes | None = None,
     ) -> None:
         self.status = status
         self.headers: dict[str, str] = {
@@ -37,6 +38,7 @@ class HttpResponse:
         }
         self.text = text
         self.error = error
+        self.body = body if body is not None else text.encode("utf-8")
 
     @property
     def ok(self) -> bool:
@@ -137,6 +139,7 @@ class HttpClient:
                     response.status,
                     dict(response.headers),
                     raw.decode("utf-8", "replace"),
+                    body=bytes(raw),
                 )
         except asyncio.TimeoutError:
             return HttpResponse(None, error="请求超时")

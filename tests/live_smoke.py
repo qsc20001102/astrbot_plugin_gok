@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT))
 
 from test_plugin import install_stubs  # noqa: E402
 
-# Only the host API is stubbed; Camp requests use the real HTTP client.
+# 只模拟宿主接口，营地请求仍通过真实 HTTP 客户端发送。
 install_stubs()
 
 from core.camp_api import CampDataApi  # noqa: E402

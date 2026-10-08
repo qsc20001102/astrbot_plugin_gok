@@ -1,6 +1,6 @@
-"""王者营地数据查询插件入口。
+"""王者荣耀数据查询工具入口。
 
-数据来源是王者营地官方接口（`kohcamp.qq.com`）：先在插件页面用微信扫码登录，
+数据来源是王者营地官方接口（`kohcamp.qq.com`）：先在插件页面用微信或 QQ 扫码登录，
 再用登录态查询玩家数据，不再依赖任何第三方数据接口。
 
 本文件只负责「装配 + 分发」：协议与业务逻辑在 `core/`，Web 接口在 `core/webui.py`，
@@ -25,13 +25,18 @@ from astrbot.core.utils.session_waiter import (
     session_waiter,
 )
 
+from .core.analysis import BattleAnalysisService
+from .core.analysis_data import (
+    DEFAULT_ANALYSIS_PROMPT,
+    PREVIOUS_DEFAULT_ANALYSIS_PROMPT,
+)
 from .core.camp_api import CampDataApi
 from .core.camp_auth import CampAuthStore
 from .core.camp_client import CampClient
 from .core.camp_login import CampLoginManager
 from .core.heroes import hero_repository
 from .core.http import HttpClient
-from .core.message import DEFAULT_COMMENT_PROMPT, MessageSender
+from .core.message import MessageSender
 from .core.service import GokService
 from .core.sqlite import AsyncSQLiteDB
 from .core.storage import GokStorage
@@ -42,16 +47,16 @@ PLAYER_SELECTION_TIMEOUT = 60
 
 
 class PlayerSelectionFilter(SessionFilter):
-    """Keep candidate selection isolated by conversation and sender."""
+    """按会话与发送人隔离候选选择。"""
 
     def filter(self, event: AstrMessageEvent) -> str:
-        """Build an isolated session identifier.
+        """构造会话与发送人共同确定的等待标识。
 
         Args:
-            event: Incoming message event.
+            event: 当前消息事件。
 
         Returns:
-            Conversation and sender identifier for this plugin.
+            按当前会话与发送人隔离的等待标识。
         """
         return f"gok-select:{event.unified_msg_origin}:{event.get_sender_id()}"
 
@@ -60,13 +65,13 @@ class PlayerSelectionFilter(SessionFilter):
     PLUGIN_NAME,
     "飞翔大野猪",
     "通过王者营地官方接口实时查询王者荣耀玩家数据（扫码登录，无需第三方接口）",
-    "2.4.2",
+    "2.5.0",
     "https://github.com/qsc20001102/astrbot_plugin_gok",
 )
 class GokPlugin(Star):
-    """王者营地数据查询：战绩 / 资料 / 对局详情 / 战绩锐评，支持角色别名。
+    """王者荣耀数据查询工具：战绩 / 资料 / 对局详情 / AI 分析，支持角色别名。
 
-    首次使用需在 AstrBot 管理面板的插件页面用微信扫码登录王者营地。
+    首次使用需在 AstrBot 管理面板的插件页面用微信或 QQ 扫码登录王者营地。
     """
 
     def __init__(self, context: Context, config: AstrBotConfig | None = None) -> None:
@@ -100,16 +105,21 @@ class GokPlugin(Star):
             logger.warning("指令前缀已开启但内容为空，将按未启用前缀处理")
             self.prefix_enabled = False
 
-        comment = self.conf.get("comment", {}) or {}
-        self.comment_enabled = bool(comment.get("enable", False))
-        self.comment_provider = str(comment.get("select_provider") or "").strip()
-        self.comment_prompt = str(
-            comment.get("prompt") or DEFAULT_COMMENT_PROMPT
-        ).strip()
-        if self.comment_enabled:
-            logger.info(
-                "战绩锐评已启用（模型：%s）", self.comment_provider or "会话默认模型"
-            )
+        # 只升级原样保存的旧默认提示词，用户自定义的分析要求保持原样。
+        analysis = self.conf.get("analysis", {}) or {}
+        if (
+            str(analysis.get("prompt") or "").strip()
+            == PREVIOUS_DEFAULT_ANALYSIS_PROMPT
+        ):
+            analysis["prompt"] = DEFAULT_ANALYSIS_PROMPT
+            save_config = getattr(self.conf, "save_config", None)
+            if callable(save_config):
+                try:
+                    save_config()
+                except OSError as exc:
+                    logger.warning(
+                        "默认分析提示词已更新，配置保存失败：%s", type(exc).__name__
+                    )
 
         self.default_limit = self._int_config("battle_limit", 10, minimum=1, maximum=25)
         self._account_cooldown = self._int_config("account_cooldown", 300, minimum=0)
@@ -156,7 +166,8 @@ class GokPlugin(Star):
             self.api,
             self.login,
         )
-        self.webui = WebUIService(self.service)
+        self.analysis = BattleAnalysisService(self.service, self.context, self.conf)
+        self.webui = WebUIService(self.service, self.analysis)
 
     # ------------------------------------------------------------------ 生命周期
     async def initialize(self) -> None:
@@ -176,7 +187,7 @@ class GokPlugin(Star):
             logger.info("营地登录态就绪：%s", summary["nickname"])
         else:
             logger.warning(
-                "尚未登录王者营地，请在 AstrBot 管理面板 → 插件 → 王者营地查询 页面扫码登录"
+                "尚未登录王者营地，请在 AstrBot 管理面板 → 插件 → 王者荣耀数据查询工具 页面扫码登录"
             )
         logger.info("GOK 异步初始化完成")
 
@@ -189,6 +200,10 @@ class GokPlugin(Star):
             await asyncio.gather(*selection_tasks, return_exceptions=True)
         self._selection_tasks.clear()
         self._pending_choices.clear()
+        if getattr(self, "analysis", None) is not None:
+            await self.analysis.close()
+        if getattr(self, "login", None) is not None:
+            await self.login.close()
         if getattr(self, "http", None) is not None:
             await self.http.close()
             self.http = None
@@ -209,8 +224,9 @@ class GokPlugin(Star):
             "巅峰战绩": self.cmd_battle,
             "资料": self.cmd_profile,
             "对局": self.cmd_detail,
+            "分析": self.cmd_analysis,
             # 角色别名
-            "角色查看": self.cmd_alias_list,
+            "角色": self.cmd_alias_list,
             # 账号
             "营地登录": self.cmd_login,
             "营地账号": self.cmd_accounts,
@@ -330,14 +346,14 @@ class GokPlugin(Star):
     async def _resolve_query_player(
         self, event: AstrMessageEvent, name: str
     ) -> str | None:
-        """Resolve a name, waiting for a numbered selection when ambiguous.
+        """解析玩家输入，同名结果由用户选择。
 
         Args:
-            event: Original query event.
-            name: Camp ID, alias, or nickname.
+            event: 当前消息事件。
+            name: 用户输入的昵称或人工别名。
 
         Returns:
-            Selected Camp ID, or None after an error, cancellation, or timeout.
+            可继续查询的玩家标识；取消或失败时为空。
         """
         camp_id, error = await self.service.require_camp_id(name)
         if camp_id is not None:
@@ -358,14 +374,14 @@ class GokPlugin(Star):
 
         @session_waiter(timeout=PLAYER_SELECTION_TIMEOUT, record_history_chains=False)
         async def choose(controller: SessionController, reply: AstrMessageEvent):
-            """Accept one numbered reply without extending the original deadline.
+            """处理编号回复，并保持原始选择截止时间。
 
             Args:
-                controller: Host session controller.
-                reply: Reply from the original sender and conversation.
+                controller: 本次候选选择的会话控制器。
+                reply: 用户对候选列表的回复消息。
 
             Returns:
-                None. Stops the controller after a selection or cancellation.
+                回复处理结果，不延长等待截止时间。
             """
             nonlocal selected
             reply.should_call_llm(True)
@@ -389,7 +405,7 @@ class GokPlugin(Star):
         task = asyncio.create_task(choose(event, session_filter=session_filter))
         self._selection_tasks.add(task)
         try:
-            # Register before prompting so a fast reply cannot miss the waiter.
+            # 先注册等待器再发送提示，避免用户立即回复时丢失选择。
             await asyncio.sleep(0)
             lines = [f"「{name}」有 {len(candidates)} 个匹配用户："]
             for index, user in enumerate(candidates, 1):
@@ -424,21 +440,20 @@ class GokPlugin(Star):
         """功能说明。"""
         prefix = self.prefix_text if self.prefix_enabled else ""
         text = (
-            "王者营地查询\n"
+            "王者荣耀数据查询工具\n"
             f"{prefix}战绩 营地ID/别名/昵称 [场数]：全部模式战绩\n"
             f"{prefix}排位战绩 营地ID/别名/昵称 [场数]：排位战绩\n"
             f"{prefix}巅峰战绩 营地ID/别名/昵称 [场数]：巅峰战绩\n"
             f"{prefix}资料 营地ID/角色名：角色与赛季资料\n"
             f"{prefix}对局 营地ID/角色名 [序号]：双方对局详情与出装\n"
-            f"{prefix}角色查看：查看已保存的角色名称与ID\n"
+            f"{prefix}分析 营地ID/角色名 [序号]：AI 分析本场胜负原因\n"
+            f"{prefix}角色：游戏昵称、营地ID与别名\n"
             f"{prefix}功能：查看本说明\n"
             f"{prefix}营地登录 / {prefix}营地账号：查看账号状态\n"
             "名称先匹配别名、再匹配游戏昵称，库中没有时在线搜索；多结果回复序号选择。\n"
             "查询成功会自动保存营地 ID 与真实游戏昵称；人工别名在管理页设置。\n"
-            "战绩、资料、对局可在插件配置中选择图片或文本输出。"
+            "战绩、资料、对局、角色可在插件配置中选择图片或文本输出。"
         )
-        if self.comment_enabled:
-            text += "\n已开启自动锐评：战绩发送成功后会追加一条点评。"
         await event.send(event.plain_result(text))
 
     async def cmd_battle(
@@ -458,21 +473,13 @@ class GokPlugin(Star):
         camp_id = await self._resolve_query_player(event, name)
         if camp_id is None:
             return
-        result = await self.sender.run(
+        await self.sender.run(
             event,
             lambda: self.service.battle_report(
                 camp_id, limit=limit or self.default_limit, option=option
             ),
             style=self.query_output,
         )
-        if self.comment_enabled and result and result.get("code") == 200:
-            await self.sender.comment_battle(
-                event,
-                result,
-                context=self.context,
-                provider_id=self.comment_provider,
-                instructions=self.comment_prompt,
-            )
 
     async def cmd_profile(self, event: AstrMessageEvent, name: str = "") -> None:
         """资料 [营地ID/别名]。"""
@@ -508,9 +515,37 @@ class GokPlugin(Star):
             style=self.query_output,
         )
 
+    async def cmd_analysis(
+        self, event: AstrMessageEvent, name: str = "", index: int = 1
+    ) -> None:
+        """分析指定单局，仅发送 AI 结论。
+
+        Args:
+            event: 发起分析的聊天消息。
+            name: 营地 ID、昵称或别名。
+            index: 与对局指令相同的近期对局序号。
+
+        Returns:
+            无；通过共用消息层发送分析文字或错误提示。
+        """
+        if not name:
+            await event.send(
+                event.plain_result("请提供营地 ID、别名或昵称，例如：分析 489048724 1")
+            )
+            return
+        if index < 1:
+            await event.send(event.plain_result("对局序号必须从 1 开始"))
+            return
+        camp_id = await self._resolve_query_player(event, name)
+        if camp_id is None:
+            return
+        await self.sender.run(
+            event, lambda: self.analysis.analyze(camp_id, index), style="text"
+        )
+
     async def cmd_alias_list(self, event: AstrMessageEvent) -> None:
-        """角色查看。"""
-        await self.sender.plain(event, await self.service.list_aliases())
+        """角色：按现有输出配置发送角色表格图片或简明文本。"""
+        await self.sender.run(event, self.service.list_aliases, style=self.query_output)
 
     async def cmd_login(self, event: AstrMessageEvent) -> None:
         """营地登录：查看登录状态与扫码入口。"""
@@ -521,15 +556,15 @@ class GokPlugin(Star):
                     "王者营地登录态正常\n"
                     f"账号：{summary['nickname'] or summary['user_id']}\n"
                     f"可用账号：{summary['available_count']}/{summary['count']}\n"
-                    "如需更换账号，请到 AstrBot 管理面板 → 插件 → 王者营地查询 页面扫码。"
+                    "如需更换账号，请到 AstrBot 管理面板 → 插件 → 王者荣耀数据查询工具 页面扫码。"
                 )
             )
             return
         await event.send(
             event.plain_result(
                 "尚未登录王者营地，或登录态已失效；也可能账号都在冷却中。\n"
-                "请打开 AstrBot 管理面板 → 插件 → 王者营地查询，"
-                "点击「获取登录二维码」并用微信扫码登录。"
+                "请打开 AstrBot 管理面板 → 插件 → 王者荣耀数据查询工具，"
+                "在「账号管理」中选择微信或 QQ，点击「获取二维码」扫码登录。"
             )
         )
 

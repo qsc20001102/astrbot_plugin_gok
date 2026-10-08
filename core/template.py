@@ -22,7 +22,7 @@ def secure_render_template(template: str) -> str:
 
 
 class TemplateRepository:
-    """Template repository that reads the source on every request."""
+    """每次渲染实时读取模板源文件。"""
 
     def __init__(self, root: Path) -> None:
         self.root = Path(root).resolve()
@@ -41,7 +41,19 @@ class TemplateRepository:
         if not path.is_file():
             raise FileNotFoundError(f"模板文件不存在: {path}")
         async with aiofiles.open(path, encoding="utf-8") as handle:
-            return await handle.read()
+            source = await handle.read()
+        # 公共片段先在本地合并，远端 html_render 只需要现有的完整模板字符串。
+        # 文件名固定，不接受来自查询数据的 include 路径。
+        for marker, filename in (
+            ("<!-- GOK:REPORT_STYLE -->", "report.css"),
+            ("<!-- GOK:REPORT_MACROS -->", "macros.html"),
+        ):
+            if marker in source:
+                async with aiofiles.open(
+                    self.root / "partials" / filename, encoding="utf-8"
+                ) as handle:
+                    source = source.replace(marker, await handle.read())
+        return source
 
     def available(self) -> list[str]:
         if not self.root.is_dir():

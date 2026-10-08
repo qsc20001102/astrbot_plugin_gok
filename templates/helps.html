@@ -1,109 +1,181 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<title>王者营地查询 · 功能说明</title>
-<style>
-  :root {
-    --bg: #0f1523;
-    --panel: #182034;
-    --panel-2: #1f2941;
-    --gold: #e8c37a;
-    --gold-dim: #b99a5b;
-    --text: #e8edf7;
-    --muted: #93a0bb;
-    --blue: #5aa9e6;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    width: 760px;
-    background: linear-gradient(160deg, #0f1523 0%, #131b2c 100%);
-    color: var(--text);
-    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
-    padding: 22px;
-  }
-  .head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-  .head .bar { width: 5px; height: 30px; background: linear-gradient(180deg, var(--gold), #8a6d34); border-radius: 3px; }
-  .head h1 { font-size: 22px; letter-spacing: 1px; }
-  .head .sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
-  .card {
-    background: var(--panel);
-    border: 1px solid #26304a;
-    border-radius: 10px;
-    padding: 14px 16px;
-    margin-bottom: 12px;
-  }
-  .card h2 {
-    font-size: 14px;
-    color: var(--gold);
-    margin-bottom: 10px;
-    padding-left: 9px;
-    border-left: 3px solid var(--gold-dim);
-    letter-spacing: .5px;
-  }
-  .cmd { display: flex; align-items: baseline; gap: 10px; padding: 6px 0; border-bottom: 1px dashed #232d45; }
-  .cmd:last-child { border-bottom: none; }
-  .cmd code {
-    flex: 0 0 205px;
-    background: var(--panel-2);
-    border: 1px solid #2b3752;
-    border-radius: 6px;
-    padding: 3px 8px;
-    font-size: 13px;
-    color: var(--blue);
-    font-family: Consolas, "Courier New", monospace;
-  }
-  .cmd span { font-size: 13px; color: #c6d0e4; line-height: 1.5; }
-  .note { font-size: 12px; color: var(--muted); line-height: 1.75; }
-  .note b { color: var(--gold-dim); font-weight: 600; }
-  .foot { margin-top: 14px; text-align: right; font-size: 11px; color: #6b7893; }
-</style>
-</head>
-<body>
-  <div class="head">
-    <div class="bar"></div>
-    <div>
-      <h1>王者营地 数据查询</h1>
-      <div class="sub">数据来源：王者营地官方接口（扫码登录后查询）</div>
+  <head>
+    <meta charset="UTF-8" />
+    <title>王者荣耀数据查询工具 · 功能说明</title>
+    <style>
+      :root {
+        --bg: #0f1523;
+        --panel: #182034;
+        --panel-2: #1f2941;
+        --gold: #e8c37a;
+        --gold-dim: #b99a5b;
+        --text: #e8edf7;
+        --muted: #93a0bb;
+        --blue: #5aa9e6;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        width: 760px;
+        background: linear-gradient(160deg, #0f1523 0%, #131b2c 100%);
+        color: var(--text);
+        font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+        padding: 22px;
+      }
+      .head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+      .head .bar {
+        width: 5px;
+        height: 30px;
+        background: linear-gradient(180deg, var(--gold), #8a6d34);
+        border-radius: 3px;
+      }
+      .head h1 {
+        font-size: 22px;
+        letter-spacing: 1px;
+      }
+      .head .sub {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 3px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid #26304a;
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin-bottom: 12px;
+      }
+      .card h2 {
+        font-size: 14px;
+        color: var(--gold);
+        margin-bottom: 10px;
+        padding-left: 9px;
+        border-left: 3px solid var(--gold-dim);
+        letter-spacing: 0.5px;
+      }
+      .cmd {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        padding: 6px 0;
+        border-bottom: 1px dashed #232d45;
+      }
+      .cmd:last-child {
+        border-bottom: none;
+      }
+      .cmd code {
+        flex: 0 0 205px;
+        background: var(--panel-2);
+        border: 1px solid #2b3752;
+        border-radius: 6px;
+        padding: 3px 8px;
+        font-size: 13px;
+        color: var(--blue);
+        font-family: Consolas, "Courier New", monospace;
+      }
+      .cmd span {
+        font-size: 13px;
+        color: #c6d0e4;
+        line-height: 1.5;
+      }
+      .note {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.75;
+      }
+      .note b {
+        color: var(--gold-dim);
+        font-weight: 600;
+      }
+      .foot {
+        margin-top: 14px;
+        text-align: right;
+        font-size: 11px;
+        color: #6b7893;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="head">
+      <div class="bar"></div>
+      <div>
+        <h1>王者营地 数据查询</h1>
+        <div class="sub">数据来源：王者营地官方接口（扫码登录后查询）</div>
+      </div>
     </div>
-  </div>
 
-  <div class="card">
-    <h2>查询指令（参数支持营地 ID、别名或昵称）</h2>
-    <div class="cmd"><code>战绩 [ID/别名/昵称] [场数]</code><span>全部模式近期战绩，默认 10 场</span></div>
-    <div class="cmd"><code>排位战绩 [ID/别名/昵称] [场数]</code><span>仅查询排位战绩</span></div>
-    <div class="cmd"><code>巅峰战绩 [ID/别名/昵称] [场数]</code><span>仅查询巅峰战绩</span></div>
-    <div class="cmd"><code>资料 [ID/别名]</code><span>段位、赛季胜率、本赛季常用英雄</span></div>
-    <div class="cmd"><code>对局 [ID/别名] [序号]</code><span>查看某一场的十人详细数据</span></div>
-  </div>
-
-  <div class="card">
-    <h2>角色名称映射</h2>
-    <div class="note">查询成功自动保存游戏昵称与营地 ID，只能在管理页设置独立别名；同名结果回复序号选择，60 秒超时结束。</div>
-    <div class="cmd"><code>角色查看</code><span>列出全部已保存角色</span></div>
-  </div>
-
-  <div class="card">
-    <h2>登录与账号</h2>
-    <div class="cmd"><code>营地登录</code><span>查看登录状态与扫码入口</span></div>
-    <div class="cmd"><code>营地账号</code><span>查看已登录账号与冷却状态</span></div>
-    <div class="cmd"><code>功能 / 帮助 / 王者功能</code><span>显示本说明</span></div>
-    <div class="note" style="margin-top:8px">
-      首次使用需在 <b>AstrBot 管理面板 → 插件 → 本插件页面</b> 用微信扫码登录王者营地；
-      登录态失效时同样回到该页面重新扫码。
-      页面「检测全部登录态」可逐个验证账号，频控或网络异常会单独提示。
+    <div class="card">
+      <h2>查询指令（参数支持营地 ID、别名或昵称）</h2>
+      <div class="cmd">
+        <code>战绩 [ID/别名/昵称] [场数]</code
+        ><span>全部模式近期战绩，默认 10 场</span>
+      </div>
+      <div class="cmd">
+        <code>排位战绩 [ID/别名/昵称] [场数]</code><span>仅查询排位战绩</span>
+      </div>
+      <div class="cmd">
+        <code>巅峰战绩 [ID/别名/昵称] [场数]</code><span>仅查询巅峰战绩</span>
+      </div>
+      <div class="cmd">
+        <code>资料 [ID/别名]</code><span>段位、赛季胜率、本赛季常用英雄</span>
+      </div>
+      <div class="cmd">
+        <code>对局 [ID/别名] [序号]</code><span>查看某一场的十人详细数据</span>
+      </div>
+      <div class="cmd">
+        <code>分析 [ID/别名/昵称] [序号]</code
+        ><span>仅输出 AI 对局分析，需在插件配置中选择模型</span>
+      </div>
     </div>
-  </div>
 
-  <div class="card">
-    <h2>说明</h2>
-    <div class="note">
-      · 需在游戏中或营地中<b>开放战绩</b>，对方隐藏战绩时无法查询。<br>
-      · 所有数据都是<b>实时查询</b>，插件不缓存任何玩家数据，因此看到的战绩永远是最新的。<br>
-      · 支持登录多个营地账号，触发频控时自动切换。
+    <div class="card">
+      <h2>角色名称映射</h2>
+      <div class="note">
+        查询成功自动保存游戏昵称与营地
+        ID，只能在管理页设置独立别名；同名结果回复序号选择，60 秒超时结束。
+      </div>
+      <div class="cmd">
+        <code>角色</code><span>按配置输出昵称、营地 ID 和别名的图片或文本</span>
+      </div>
     </div>
-  </div>
 
-  <div class="foot">数据时间：{{ data_time }}</div>
-</body>
+    <div class="card">
+      <h2>登录与账号</h2>
+      <div class="cmd">
+        <code>营地登录</code><span>查看登录状态与扫码入口</span>
+      </div>
+      <div class="cmd">
+        <code>营地账号</code><span>查看已登录账号与冷却状态</span>
+      </div>
+      <div class="cmd">
+        <code>功能 / 帮助 / 王者功能</code><span>显示本说明</span>
+      </div>
+      <div class="note" style="margin-top: 8px">
+        首次使用需在 <b>AstrBot 管理面板 → 插件 → 本插件页面</b> 用微信或 QQ
+        扫码登录王者营地； 登录态失效时同样回到该页面重新扫码。
+        页面「检测全部登录态」可逐个验证账号，频控或网络异常会单独提示。
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>说明</h2>
+      <div class="note">
+        · 需在游戏中或营地中<b>开放战绩</b>，对方隐藏战绩时无法查询。<br />
+        ·
+        所有数据都是<b>实时查询</b>，插件不缓存任何玩家数据，因此看到的战绩永远是最新的。<br />
+        · 支持登录多个营地账号，触发频控时自动切换。
+      </div>
+    </div>
+
+    <div class="foot">数据时间：{{ data_time }}</div>
+  </body>
 </html>

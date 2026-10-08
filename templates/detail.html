@@ -1,127 +1,129 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<title>对局详情</title>
-<style>
-  :root {
-    --gold: #e8c37a;
-    --gold-dim: #b99a5b;
-    --text: #e8edf7;
-    --muted: #93a0bb;
-    --panel: #182034;
-    --blue-team: #4a86c8;
-    --red-team: #c85a52;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    width: 100%;
-    min-width: 1120px;
-    background: linear-gradient(160deg, #0f1523 0%, #131b2c 100%);
-    color: var(--text);
-    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
-    padding: 20px;
-  }
-  .head {
-    background: var(--panel); border: 1px solid #26304a; border-radius: 12px;
-    padding: 14px 18px; margin-bottom: 14px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .head .t { font-size: 28.1px; font-weight: 600; }
-  .head .t small { font-size: 18.7px; color: var(--muted); margin-left: 10px; font-weight: 400; }
-  .head .res { font-size: 31.2px; font-weight: 700; }
-  .head .res.win { color: #5fce8f; }
-  .head .res.lose { color: #e2685f; }
-
-  .team { margin-bottom: 14px; }
-  .team-title {
-    font-size: 20.3px; font-weight: 600; letter-spacing: 1px;
-    padding: 6px 12px; border-radius: 8px 8px 0 0;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .team-title.blue { background: linear-gradient(90deg, rgba(74,134,200,.35), transparent); color: #8fc0f0; }
-  .team-title.red { background: linear-gradient(90deg, rgba(200,90,82,.35), transparent); color: #f0a09a; }
-
-  table { width: 100%; border-collapse: collapse; background: var(--panel); }
-  thead th {
-    background: #1c2438; color: var(--muted); font-size: 17.2px;
-    padding: 8px 6px; text-align: center; font-weight: 600; white-space: nowrap;
-  }
-  tbody td { padding: 7px 6px; font-size: 19.4px; text-align: center; border-top: 1px solid #212b42; }
-  tbody tr:nth-child(even) { background: #1a2233; }
-  tbody tr.target { background: rgba(232,195,122,.13); box-shadow: inset 3px 0 0 var(--gold); }
-  .hero { display: flex; align-items: center; gap: 8px; text-align: left; }
-  .hero img { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #33405e; }
-  .hero .nm { font-size: 19.4px; }
-  .hero .hd { font-size: 16.4px; color: var(--muted); margin-top: 1px; }
-  .num { font-family: Consolas, monospace; }
-  .kda i { font-style: normal; color: var(--muted); margin: 0 2px; }
-  .kda .d { color: #e2685f; }
-  .foot { margin-top: 12px; text-align: right; font-size: 17.2px; color: #6b7893; }
-  .equipment { display: grid; grid-template-columns: repeat(6, 32px); gap: 4px; min-width: 212px; }
-  .equipment img { width: 32px; height: 32px; object-fit: contain; border-radius: 4px; background: #253050; }
-  .equipment .placeholder { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; font-size: 15.6px; background: #253050; }
-  .empty { padding: 30px; text-align: center; color: var(--muted); font-size: 20.3px; }
-</style>
-</head>
-<body>
-  {% set m = data.match %}
-  <div class="head">
-    <div class="t">
-      {{ m.hero_name }} · {{ m.mode_name }}
-      <small>{{ m.played_at }} · 时长 {{ m.duration_text }}</small>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, height=1" />
+    <title>对局概览</title>
+    <style>
+      <!-- GOK:REPORT_STYLE -->
+    </style>
+  </head>
+  <body class="detail-report">
+    <!-- GOK:REPORT_MACROS -->
+    {% set match = data.match %}
+    <h1>对局概览</h1>
+    <div class="detail-heading">
+      <span class="detail-result {{ match.result }}"
+        >{{ match.result_text }}</span
+      >
+      <div class="hero-cell">
+        {{ image(match.hero_icon, match.hero_name) }}
+        <div>
+          <strong>{{ match.hero_name }}</strong
+          ><small>{{ data.profile.nickname }}</small>
+        </div>
+      </div>
+      <div class="detail-fact">
+        {{ match.mode_name }}<small>对局模式</small>
+      </div>
+      <div class="detail-fact">
+        {{ match.played_at }}<small>对局时间</small>
+      </div>
+      <div class="detail-fact">
+        {{ match.duration_text if match.duration_sec and match.duration_sec > 0
+        else '—' }}<small>对局时长</small>
+      </div>
     </div>
-    <div>
-      <span class="res {{ 'win' if m.win else 'lose' }}">{{ m.result_text }}</span>
-      <span style="color:#93a0bb;font-size: 20.3px;margin-left:10px">
-        {{ m.kills }} / {{ m.deaths }} / {{ m.assists }} · 评分 {{ m.score_text }}
-      </span>
-    </div>
-  </div>
-
-  {% macro team_table(rows, cls) %}
-  <div class="team">
-    <div class="team-title {{ cls }}">{{ '蓝方' if cls == 'blue' else '红方' }}</div>
-    <table>
-      <thead>
-        <tr>
-          <th style="text-align:left;padding-left:12px">玩家 / 英雄</th>
-          <th>等级</th><th>KDA</th><th>出装</th><th>经济</th><th>输出</th><th>承伤</th><th>战力</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in rows %}
-        <tr class="{{ 'target' if r.is_target else '' }}">
-          <td>
-            <div class="hero">
-              {% if r.hero_icon %}<img src="{{ r.hero_icon }}" alt="">{% endif %}
-              <div>
-                <div class="nm">{{ r.nickname or '未知玩家' }}</div>
-                <div class="hd">{{ r.hero_name if r.hero_name else ('英雄' + r.hero_id if r.hero_id else '') }}</div>
+    {% if data.has_detail %}{% for side, label in [('blue', '蓝方'), ('red',
+    '红方')] %} {% set rows = data[side] %}{% set summary = data.get(side ~
+    '_summary', {}) %}
+    <section class="team-section {{ side }}">
+      <div class="team-title">
+        <h3><span class="team-dot"></span>{{ label }}</h3>
+        {% if summary %}<span class="muted"
+          >{{ number(summary.kills) }} 击杀 · {{ number(summary.money) }} 经济{%
+          if summary.complete is sameas false %} · 玩家数据未完整返回{% endif
+          %}</span
+        >{% endif %}
+      </div>
+      <table class="detail-table">
+        <colgroup>
+          <col class="col-player" />
+          <col class="col-kda" />
+          <col class="col-score" />
+          <col class="col-equipment" />
+          <col class="col-skill" />
+          <col class="col-money" />
+          <col />
+          <col />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>玩家 / 英雄</th>
+            <th>KDA</th>
+            <th>评分</th>
+            <th>出装</th>
+            <th>召唤师技能</th>
+            <th>经济</th>
+            <th>英雄伤害</th>
+            <th>英雄承伤</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr class="{{ 'target' if row.is_target else '' }}">
+            <td>
+              <div class="hero-cell">
+                {{ image(row.hero_icon, row.hero_name) }}
+                <div>
+                  <strong
+                    >{{ row.nickname or row.hero_name or '未知玩家' }}</strong
+                  ><small
+                    >{{ row.hero_name or '未知英雄' }} · {{ number(row.level) }}
+                    级</small
+                  >
+                </div>
               </div>
-            </div>
-          </td>
-          <td class="num">{{ r.level if r.level is not none else '—' }}</td>
-          <td class="num kda">{{ r.kills }}<i>/</i><span class="d">{{ r.deaths }}</span><i>/</i>{{ r.assists }}</td>
-          <td><div class="equipment">{% for item in r.equipment %}{% if item.icon %}<img src="{{ item.icon }}" alt="{{ item.name }}" title="{{ item.name }}">{% else %}<span class="placeholder" title="{{ item.name }}">{{ item.name[:1] or item.id }}</span>{% endif %}{% endfor %}</div>{% if not r.equipment %}—{% endif %}</td>
-          <td class="num">{{ r.money }}</td>
-          <td class="num">{{ r.hurt }}</td>
-          <td class="num">{{ r.behurt }}</td>
-          <td class="num">{{ r.fight_power or '-' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endmacro %}
-
-  {% if data.has_detail %}
-    {{ team_table(data.blue, 'blue') }}
-    {{ team_table(data.red, 'red') }}
-  {% else %}
-    <div class="empty">该对局没有返回详细面板数据</div>
-  {% endif %}
-
-  <div class="foot">数据时间：{{ data_time }} · 数据来源：王者营地</div>
-</body>
+            </td>
+            <td>{{ row.kills }}/{{ row.deaths }}/{{ row.assists }}</td>
+            <td>
+              {{ number(row.score) }}{% if row.mvp %}<span
+                class="role-score-honor"
+                >{{ 'SVP' if row.mvp_type == 'svp' else 'MVP' if row.mvp_type ==
+                'mvp' else '最佳' }}</span
+              >{% endif %}
+            </td>
+            <td>
+              <div class="equipment">
+                {% for item in (row.equipment or [])[:6] %}{{ image(item.icon,
+                item.name or item.id, 'equipment-icon') }}{% endfor %}
+              </div>
+              {% if not row.equipment %}—{% endif %}
+            </td>
+            <td>
+              {% if row.skill and row.skill.icon %}
+              <div class="skill">
+                {{ image(row.skill.icon, row.skill.name, 'skill-icon') }}<span
+                  >{{ row.skill.name }}</span
+                >
+              </div>
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ number(row.money) }}</td>
+            <td>
+              {{ number(row.hero_damage) }}{{ share(row.hero_damage_percent) }}
+            </td>
+            <td>
+              {{ number(row.damage_taken) }}{{ share(row.damage_taken_percent)
+              }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endfor %} {% else %}
+    <div class="empty">这场对局的玩家详情暂未返回</div>
+    {% endif %} {{ footer(data_time) }}
+  </body>
 </html>

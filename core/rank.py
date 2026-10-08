@@ -131,13 +131,13 @@ def parse_rank_score(rank_name: str | None, stars: int = 0) -> int:
 
 
 def rank_name_from_code(code: int | None) -> str | None:
-    """Resolve a historical match rank without using the current player rank.
+    """从历史战绩段位代码还原名称，不使用当前主页段位。
 
     Args:
-        code: The roleJob code on the match record.
+        code: 历史战绩中的段位代码。
 
     Returns:
-        Confirmed rank name, or None for an unrecognized historical code.
+        对应的历史段位名称。
     """
     if code is None:
         return None

@@ -129,7 +129,7 @@ class HttpClient:
                 timeout=request_timeout,
             ) as response:
                 # read(n) can return a single partial network chunk before EOF.
-                # Consume the full stream, enforcing the cap across all chunks.
+                # 累计读取完整响应流，并按所有分块合计检查大小上限。
                 raw = bytearray()
                 async for chunk in response.content.iter_chunked(64 * 1024):
                     if len(raw) + len(chunk) > MAX_BODY_BYTES:

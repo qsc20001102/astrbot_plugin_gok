@@ -1,4 +1,4 @@
-"""Encode and parse the verified Camp nickname-search Protobuf messages."""
+"""构造和解析已经验证的营地昵称搜索 Protobuf 消息。"""
 
 from __future__ import annotations
 
@@ -6,13 +6,13 @@ from typing import Any
 
 
 def _varint(value: int) -> bytes:
-    """Encode a nonnegative integer.
+    """编码非负整数为 Protobuf varint。
 
     Args:
-        value: Integer to encode.
+        value: 待编码或转换的值。
 
     Returns:
-        Protobuf varint bytes.
+        编码后的字节。
     """
     output = bytearray()
     while value > 127:
@@ -23,13 +23,13 @@ def _varint(value: int) -> bytes:
 
 
 def build_search_request(nickname: str) -> bytes:
-    """Build the request validated against Camp's search endpoint.
+    """构造已验证的营地昵称搜索请求。
 
     Args:
-        nickname: Search text.
+        nickname: 用户提供的搜索昵称。
 
     Returns:
-        Protobuf request bytes.
+        符合已确认字段编号的 Protobuf 原始字节。
     """
     name = nickname.encode("utf-8")
     return (
@@ -43,17 +43,14 @@ def build_search_request(nickname: str) -> bytes:
 
 
 def _read_varint(raw: bytes, offset: int) -> tuple[int, int]:
-    """Read a bounded varint from a message.
+    """读取有边界保护的 varint。
 
     Args:
-        raw: Message bytes.
-        offset: Start offset.
+        raw: 原始 Protobuf 响应字节。
+        offset: 字节读取起点。
 
     Returns:
-        Integer and the next offset.
-
-    Raises:
-        ValueError: The varint is truncated or exceeds 64 bits.
+        整数值与读取后的字节位置。
     """
     value = 0
     for shift in range(0, 70, 7):
@@ -70,16 +67,13 @@ def _read_varint(raw: bytes, offset: int) -> tuple[int, int]:
 
 
 def _fields(raw: bytes) -> dict[int, list[int | bytes]]:
-    """Read repeated fields while checking lengths and wire types.
+    """检查消息长度和 wire type 后读取重复字段。
 
     Args:
-        raw: Complete message bytes.
+        raw: 原始 Protobuf 响应字节。
 
     Returns:
-        Values indexed by field number.
-
-    Raises:
-        ValueError: A field is malformed or uses an unsupported wire type.
+        以字段号、类型和字段值表示的消息内容。
     """
     output: dict[int, list[int | bytes]] = {}
     offset = 0
@@ -106,16 +100,13 @@ def _fields(raw: bytes) -> dict[int, list[int | bytes]]:
 
 
 def parse_search_response(raw: bytes) -> dict[str, Any]:
-    """Parse users and the observed string business status.
+    """解析搜索用户与已经观测到的业务状态。
 
     Args:
-        raw: Search response bytes, already decrypted when needed.
+        raw: 原始 Protobuf 响应字节。
 
     Returns:
-        A Camp business envelope containing candidate users.
-
-    Raises:
-        ValueError: The response is malformed or has no recognizable status.
+        业务状态与解析后的搜索用户集合。
     """
     root = _fields(raw)
     statuses = root.get(2, [])

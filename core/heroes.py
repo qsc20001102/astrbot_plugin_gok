@@ -45,7 +45,7 @@ def strip_control_chars(text: str) -> str:
 
 
 class HeroRepository:
-    """Built-in offline hero catalog."""
+    """随插件打包的离线英雄目录。"""
 
     def __init__(self, path: Path = _DATA_PATH) -> None:
         self.path = path

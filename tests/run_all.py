@@ -12,6 +12,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SUITES = (
+    ("AI 对局分析", "test_analysis.py"),
+    ("简明指令文本", "test_text_outputs.py"),
+    ("QQ 登录与地图回顾", "test_expansion.py"),
     ("昵称搜索与查询选择", "test_search.py"),
     ("核心层（加密 / 段位 / 解析 / 存储）", "test_core.py"),
     ("插件层（装配 / 指令分发 / 页面接口）", "test_plugin.py"),

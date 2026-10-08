@@ -1,152 +1,102 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<title>玩家资料</title>
-<style>
-  :root {
-    --gold: #e8c37a;
-    --gold-dim: #b99a5b;
-    --text: #e8edf7;
-    --muted: #93a0bb;
-    --panel: #182034;
-    --win: #5fce8f;
-    --lose: #e2685f;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    width: 100%;
-    min-width: 900px;
-    background: linear-gradient(160deg, #0f1523 0%, #131b2c 100%);
-    color: var(--text);
-    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
-    padding: 20px;
-  }
-  .card {
-    background: var(--panel);
-    border: 1px solid #26304a;
-    border-radius: 12px;
-    padding: 16px 18px;
-    margin-bottom: 14px;
-  }
-  .top { display: flex; align-items: center; gap: 16px; }
-  .avatar {
-    width: 78px; height: 78px; border-radius: 50%;
-    border: 2px solid var(--gold-dim); object-fit: cover; background: #253050;
-  }
-  .avatar-fallback {
-    width: 78px; height: 78px; border-radius: 50%;
-    border: 2px solid var(--gold-dim); background: #253050;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 39px; color: var(--gold);
-  }
-  .who { flex: 1; }
-  .who .name { font-size: 29.9px; font-weight: 600; }
-  .who .sub { font-size: 15.6px; color: var(--muted); margin-top: 6px; line-height: 1.7; }
-  .who .sub em { font-style: normal; color: var(--gold); }
-  .rank { display: flex; flex: 0 0 170px; flex-direction: column; align-items: center; text-align: center; }
-  .rank-emblem { width: 148px; height: 118px; object-fit: contain; }
-  .rank-stars { width: 144px; height: 35px; object-fit: contain; margin-bottom: -12px; position: relative; z-index: 1; }
-  .rank .r { font-size: 24.7px; color: var(--gold); font-weight: 600; }
-  .rank .s { font-size: 15.6px; color: var(--muted); margin-top: 5px; }
-
-  h2 {
-    font-size: 16.9px; color: var(--gold); margin-bottom: 12px;
-    padding-left: 9px; border-left: 3px solid var(--gold-dim); letter-spacing: .5px;
-  }
-  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .cell {
-    background: #1c2438; border: 1px solid #26304a; border-radius: 9px;
-    padding: 11px 8px; text-align: center;
-  }
-  .cell .v { font-size: 24.7px; font-weight: 700; }
-  .cell .k { font-size: 14.3px; color: var(--muted); margin-top: 4px; }
-  .v.win { color: var(--win); }
-  .v.lose { color: var(--lose); }
-  .v.gold { color: var(--gold); }
-
-  .hero-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px dashed #232d45; }
-  .hero-row:last-child { border-bottom: none; }
-  .hero-row img { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #33405e; }
-  .hero-row .n { flex: 1; font-size: 16.9px; }
-  .hero-row .g { font-size: 15.6px; color: var(--muted); }
-  .hero-row .w { font-size: 16.9px; font-weight: 600; width: 58px; text-align: right; }
-  .foot { margin-top: 12px; text-align: right; font-size: 14.3px; color: #6b7893; }
-</style>
-</head>
-<body>
-  {% set p = data.profile %}
-  <div class="card">
-    <div class="top">
-      {% if p.avatar %}
-        <img class="avatar" src="{{ p.avatar }}" alt="">
-      {% else %}
-        <div class="avatar-fallback">{{ p.nickname[:1] }}</div>
-      {% endif %}
-      <div class="who">
-        <div class="name">{{ p.nickname }}</div>
-        <div class="sub">
-          营地 ID：<em>{{ p.camp_id }}</em><br>
-          区服：<em>{{ p.server_name or p.area_name }}</em>（{{ p.area_name }}）
-          {% if p.role_id %} · 角色 ID：{{ p.role_id }}{% endif %}
-        </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1200, height=1" />
+    <title>玩家资料</title>
+    <style>
+      <!-- GOK:REPORT_STYLE -->
+    </style>
+  </head>
+  <body class="profile-report">
+    <!-- GOK:REPORT_MACROS -->
+    {% set profile = data.profile %}
+    <h1>玩家资料</h1>
+    {{ identity(profile) }} {% if data.hide_match or profile.hide_match %}
+    <div class="notice">该玩家已隐藏战绩</div>
+    {% endif %}
+    <dl class="profile-stats">
+      <div>
+        <dt>赛季场次</dt>
+        <dd>{{ number(profile.season_games) }}</dd>
       </div>
-      <div class="rank">
-        {% if p.rank_stars_icon %}<img class="rank-stars" src="{{ p.rank_stars_icon }}" alt="{{ p.current_stars }} 星">{% else %}<div class="s">{{ p.current_stars }} 星</div>{% endif %}
-        {% if p.rank_icon %}<img class="rank-emblem" src="{{ p.rank_icon }}" alt="{{ p.rank_label }}">{% endif %}
-        <div class="r">{{ p.rank_label }}</div>
+      <div>
+        <dt>赛季胜率</dt>
+        <dd>
+          {{ number(profile.win_rate, '%') if profile.season_games and
+          profile.season_games > 0 else '—' }}
+        </dd>
       </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>本赛季数据</h2>
-    <div class="grid">
-      <div class="cell"><div class="v">{{ p.season_games or '—' }}</div><div class="k">场次</div></div>
-      <div class="cell"><div class="v win">{{ p.season_wins or '—' }}</div><div class="k">胜场</div></div>
-      <div class="cell">
-        <div class="v {{ 'win' if p.win_rate >= 50 else 'lose' }}">
-          {{ p.win_rate if p.season_games else '—' }}{% if p.season_games %}%{% endif %}
-        </div>
-        <div class="k">胜率</div>
+      <div>
+        <dt>排位评分</dt>
+        <dd>
+          {{ number(profile.rank_score if profile.rank_score and
+          profile.rank_score > 0 else none) }}
+        </dd>
       </div>
-      <div class="cell"><div class="v gold">{{ p.gold_count or '—' }}</div><div class="k">金牌</div></div>
+      <div>
+        <dt>巅峰评分</dt>
+        <dd>
+          {{ number(profile.peak_rating if profile.peak_rating and
+          profile.peak_rating > 0 else none) }}
+        </dd>
+      </div>
+      <div>
+        <dt>赛季胜场</dt>
+        <dd>{{ number(profile.season_wins) }}</dd>
+      </div>
+      <div>
+        <dt>全场最佳</dt>
+        <dd>{{ number(profile.mvp_count) }}</dd>
+      </div>
+      <div>
+        <dt>金牌次数</dt>
+        <dd>{{ number(profile.gold_count) }}</dd>
+      </div>
+      <div>
+        <dt>区服</dt>
+        <dd>{{ profile.server_name or profile.area_name or '—' }}</dd>
+      </div>
+    </dl>
+    <div class="section-heading">
+      <h2>赛季常用英雄</h2>
+      <span class="muted">{{ data.season_name }}</span>
     </div>
-  </div>
-
-  <div class="card">
-    <h2>评分与巅峰</h2>
-    <div class="grid">
-      <div class="cell"><div class="v gold">{{ p.rank_score or '—' }}</div><div class="k">排位场均评分</div></div>
-      <div class="cell"><div class="v gold">{{ p.peak_rating or '—' }}</div><div class="k">巅峰场均评分</div></div>
-      <div class="cell"><div class="v gold">{{ p.peak_score or '—' }}</div><div class="k">巅峰积分</div></div>
-      <div class="cell"><div class="v">{{ p.mvp_count or '—' }}</div><div class="k">MVP 次数</div></div>
-    </div>
-  </div>
-
-  {% if data.season_heroes %}
-  <div class="card">
-    <h2>本赛季常用英雄（营地赛季数据）</h2>
-    {% for h in data.season_heroes %}
-    <div class="hero-row">
-      {% if h.hero_icon %}<img src="{{ h.hero_icon }}" alt="">{% endif %}
-      <div class="n">{{ h.hero_name }}</div>
-      <div class="g">{{ h.games }} 场 · 胜 {{ h.wins }}
-        {%- if h.fight_power %} · 战力 {{ h.fight_power }}{% endif %}</div>
-      <div class="w {{ 'win' if h.win_rate >= 50 else 'lose' }}">{{ h.win_rate }}%</div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  {% if p.hide_match %}
-  <div class="card" style="border-color:#8a6d34">
-    <div class="note" style="font-size:16.2px;color:#e8c37a;line-height:1.7">
-      该玩家已在王者营地隐藏战绩，无法查询对局记录。
-    </div>
-  </div>
-  {% endif %}
-
-  <div class="foot">数据时间：{{ data_time }} · 数据来源：王者营地</div>
-</body>
+    {% if data.season_heroes %}
+    <table class="hero-table">
+      <colgroup>
+        <col class="col-hero" />
+        <col class="col-value" />
+        <col class="col-value" />
+        <col class="col-value" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>英雄</th>
+          <th>场次</th>
+          <th>胜率</th>
+          <th>战力</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for hero in data.season_heroes %}
+        <tr>
+          <td>
+            <div class="hero-cell">
+              {{ image(hero.hero_icon, hero.hero_name) }}<strong
+                >{{ hero.hero_name }}</strong
+              >
+            </div>
+          </td>
+          <td>{{ number(hero.games) }}</td>
+          <td>{{ number(hero.win_rate, '%') }}</td>
+          <td>{{ number(hero.fight_power) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">暂无本赛季英雄统计</div>
+    {% endif %} {{ footer(data_time) }}
+  </body>
 </html>

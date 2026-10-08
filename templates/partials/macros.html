@@ -1,0 +1,54 @@
+{# 公共展示宏：只读取统一模型，所有外部文字沿用自动转义。 #} {% macro
+number(value, suffix='') -%} {%- if value is not defined or value is none or
+value == '' -%}— {%- elif value is number -%}{{
+'{:,.1f}'.format(value).rstrip('0').rstrip('.') }}{{ suffix }} {%- else -%}{{
+value }}{{ suffix }} {%- endif -%} {%- endmacro %} {% macro image(url, label='',
+css='hero-image') -%}
+<span class="image {{ css }}">
+  {% if url and (url.startswith('https://') or url.startswith('http://')) %}
+  <img src="{{ url }}" alt="{{ label }}" referrerpolicy="no-referrer" />
+  {% else %}<span class="image-fallback">{{ label[:1] or '·' }}</span>{% endif
+  %}
+</span>
+{%- endmacro %} {% macro identity(profile) -%}
+<div class="player-identity">
+  {{ image(profile.avatar, profile.nickname, 'avatar') }}
+  <div class="player-main">
+    <strong>{{ profile.nickname or '未知角色' }}</strong>
+    <div class="muted">
+      营地 ID {{ profile.camp_id }}{% if profile.server_name or
+      profile.area_name %} · {{ profile.server_name or profile.area_name }}{%
+      endif %}
+    </div>
+  </div>
+  <div class="rank-block">
+    {% if profile.rank_icon %}{{ image(profile.rank_icon, '', 'rank-image') }}{%
+    endif %}
+    <div>
+      <strong
+        >{{ profile.rank_label if profile.rank_label and profile.rank_label !=
+        '未知' else '段位未返回' }}{% if profile.rank_label and
+        profile.rank_label != '未知' %}
+        <em>{{ number(profile.current_stars) }}</em> 星{% endif %}</strong
+      >
+    </div>
+  </div>
+  <div class="rank-block">
+    <div>
+      <span class="muted">巅峰积分</span
+      ><strong
+        >{{ number(profile.peak_score if profile.peak_score and
+        profile.peak_score > 0 else none) }}</strong
+      >
+    </div>
+  </div>
+</div>
+{%- endmacro %} {% macro share(value) -%} {% if value is defined and value is
+not none %} {% set width = [100, [0, value] | max] | min %}
+<div class="damage-share">
+  <span class="share-track"><i style="width:{{ width }}%"></i></span
+  ><span>{{ number(value, '%') }}</span>
+</div>
+{% endif %} {%- endmacro %} {% macro footer(data_time) -%}
+<footer><span>王者荣耀数据查询工具</span><span>{{ data_time }}</span></footer>
+{%- endmacro %}

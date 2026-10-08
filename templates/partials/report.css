@@ -1,0 +1,460 @@
+/* 指令图片沿用 WebUI 的浅色信息布局，四类报告共用排版与颜色。 */
+:root {
+  --text: #172234;
+  --muted: #718096;
+  --line: #e5e9f0;
+  --surface: #f5f7fa;
+  --primary: #3158d6;
+  --success: #176e43;
+  --danger: #b7474a;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  width: 100%;
+  min-width: 1200px;
+  background: #fff;
+  color: var(--text);
+  font:
+    18px/1.5 "Microsoft YaHei",
+    "PingFang SC",
+    system-ui,
+    sans-serif;
+  padding: 30px;
+}
+body.detail-report {
+  min-width: 1280px;
+}
+body.roles-report {
+  min-width: 940px;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1 {
+  font-size: 30px;
+  line-height: 1.3;
+  margin-bottom: 26px;
+}
+h2 {
+  font-size: 23px;
+}
+h3 {
+  font-size: 21px;
+}
+.muted {
+  color: var(--muted);
+  font-size: 15px;
+}
+.image {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #edf1f6;
+  vertical-align: middle;
+}
+.image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.image-fallback {
+  font-weight: 600;
+  color: var(--muted);
+}
+.hero-image {
+  width: 46px;
+  height: 46px;
+  border-radius: 6px;
+}
+.avatar {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+}
+.rank-image {
+  width: 58px;
+  height: 58px;
+  background: transparent;
+}
+.rank-image img,
+.honor-image img {
+  object-fit: contain;
+}
+.honor-image {
+  width: 52px;
+  height: 30px;
+  background: transparent;
+}
+.player-identity {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 26px;
+}
+.player-main {
+  flex: 1;
+  min-width: 0;
+}
+.player-main > strong {
+  display: block;
+  font-size: 26px;
+  margin-bottom: 6px;
+  overflow-wrap: anywhere;
+}
+.rank-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+.rank-block strong {
+  display: block;
+  font-size: 22px;
+}
+.rank-block em {
+  font-style: normal;
+  color: var(--primary);
+  font-size: 26px;
+}
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 22px 0;
+  margin-bottom: 26px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.summary-strip > div {
+  text-align: center;
+  padding: 0 20px;
+  border-left: 1px solid var(--line);
+}
+.summary-strip > div:first-child {
+  text-align: left;
+  padding-left: 0;
+  border: 0;
+}
+.summary-strip strong {
+  display: block;
+  font-size: 25px;
+  font-weight: 600;
+  margin-top: 3px;
+}
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+th {
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 400;
+  text-align: left;
+  padding: 12px 10px;
+  white-space: nowrap;
+}
+td {
+  border-bottom: 1px solid var(--line);
+  padding: 14px 10px;
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+tbody tr.win {
+  background: #f0f8f3;
+}
+tbody tr.lose {
+  background: #fff2f2;
+}
+.battle-table .col-number {
+  width: 40px;
+}
+.battle-table .col-hero {
+  width: 28%;
+}
+.battle-table .col-time {
+  width: 25%;
+}
+.battle-table .col-kda {
+  width: 16%;
+}
+.battle-table .col-honor {
+  width: 17%;
+}
+.battle-table .col-duration {
+  width: auto;
+}
+.hero-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.hero-cell > div {
+  min-width: 0;
+}
+.hero-cell strong {
+  display: block;
+  font-size: 19px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.hero-cell small {
+  display: block;
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 3px;
+}
+.battle-time {
+  color: var(--muted);
+  font-size: 15px;
+}
+.battle-result {
+  display: block;
+  font-size: 16px;
+  margin-top: 3px;
+}
+.success {
+  color: var(--success);
+}
+.danger {
+  color: var(--danger);
+}
+.score-cell {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 20px;
+}
+.honor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.honor-label {
+  font-size: 13px;
+  color: #a47a32;
+}
+.list-note {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 12px;
+}
+.detail-heading {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.detail-result {
+  padding: 8px 18px;
+  border-radius: 5px;
+  background: #f9f3e8;
+  color: #a47a32;
+  font-size: 25px;
+  font-weight: 700;
+}
+.detail-result.lose {
+  background: #fbedee;
+  color: var(--danger);
+}
+.detail-result.unknown {
+  background: var(--surface);
+  color: var(--muted);
+}
+.detail-fact {
+  padding-left: 20px;
+  border-left: 1px solid var(--line);
+  font-size: 17px;
+}
+.detail-fact small {
+  display: block;
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 3px;
+}
+.team-section {
+  margin-bottom: 26px;
+}
+.team-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.team-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  margin-right: 8px;
+}
+.red .team-dot {
+  background: var(--danger);
+}
+.detail-table {
+  font-size: 16px;
+}
+.detail-table .col-player {
+  width: 230px;
+}
+.detail-table .col-kda {
+  width: 90px;
+}
+.detail-table .col-score {
+  width: 66px;
+}
+.detail-table .col-equipment {
+  width: 228px;
+}
+.detail-table .col-skill {
+  width: 104px;
+}
+.detail-table .col-money {
+  width: 106px;
+}
+.detail-table td {
+  padding: 13px 10px;
+}
+.detail-table .target {
+  background: #eaf0ff;
+}
+.red .detail-table .target {
+  background: #fff0f0;
+}
+.detail-table .hero-cell strong {
+  font-size: 16px;
+  font-weight: 500;
+}
+.equipment {
+  display: grid;
+  grid-template-columns: repeat(6, 31px);
+  gap: 4px;
+}
+.equipment-icon {
+  width: 31px;
+  height: 31px;
+  border-radius: 4px;
+}
+.skill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 60px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.skill-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+}
+.role-score-honor {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+.damage-share {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.damage-share > span:last-child {
+  min-width: 39px;
+  text-align: right;
+}
+.share-track {
+  display: block;
+  flex: 1;
+  min-width: 35px;
+  height: 5px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #e5eaf3;
+}
+.share-track i {
+  display: block;
+  height: 100%;
+  background: #5d7ce2;
+}
+.red .share-track i {
+  background: #d8757b;
+}
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 26px;
+  margin: 0 0 28px;
+  padding: 25px 0;
+  border-top: 1px solid var(--line);
+}
+.profile-stats dt {
+  color: var(--muted);
+  font-size: 16px;
+}
+.profile-stats dd {
+  font-size: 26px;
+  margin: 6px 0 0;
+  font-weight: 600;
+}
+.hero-table .col-hero {
+  width: 40%;
+}
+.hero-table .col-value {
+  width: 20%;
+}
+.notice,
+.empty {
+  padding: 20px;
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+.roles-table .col-name,
+.roles-table .col-alias {
+  width: 35%;
+}
+.roles-table .col-id {
+  width: 30%;
+}
+.roles-table td {
+  overflow-wrap: anywhere;
+  font-size: 20px;
+  padding: 17px 12px;
+}
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}

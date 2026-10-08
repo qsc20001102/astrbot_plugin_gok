@@ -17,7 +17,7 @@ import sys
 import tempfile
 import types
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from starlette.responses import JSONResponse
 
@@ -215,8 +215,12 @@ class _Context:
     async def get_current_chat_provider_id(self, umo: str = "") -> str:
         return "stub-provider"
 
-    async def llm_generate(self, chat_provider_id: str = "", prompt: str = ""):
-        return types.SimpleNamespace(completion_text="这是一句锐评")
+    async def llm_generate(
+        self, chat_provider_id: str = "", prompt: str = "", system_prompt: str = ""
+    ):
+        return types.SimpleNamespace(
+            completion_text="【获胜方】\n原因：测试原因\n关键点：测试转折\n【失败方】\n原因：测试失利\n关键点：测试事件\n背锅：证据不足，无法确定"
+        )
 
 
 def _register(*args: object, **kwargs: object):
@@ -229,7 +233,7 @@ def _register(*args: object, **kwargs: object):
 
 # --------------------------------------------------------------------- 桩：web
 def json_response(data=None, *, status_code: int = 200, headers=None):
-    # Match the host: json_response sends the given body without an envelope.
+    # 模拟宿主实际行为：json_response 直接发送给定正文，不自动增加包装层。
     return JSONResponse(
         {} if data is None else data, status_code=status_code, headers=headers
     )
@@ -373,7 +377,7 @@ async def run_tests() -> None:
         "battle_limit": 10,
         "account_cooldown": 300,
         "tls_verify": True,
-        "comment": {"enable": True, "select_provider": ""},
+        "analysis": {"select_provider": "stub-provider"},
         "image": {"format": "jpeg", "device_scale_factor": "1.3", "jpeg_quality": 100},
     }
     plugin = module.GokPlugin(context, config)
@@ -388,8 +392,8 @@ async def run_tests() -> None:
 
 async def exercise(plugin, context, module, config) -> None:
     print("\n[装配]")
-    check("指令表已填充", len(plugin.command_map) == 10, str(len(plugin.command_map)))
-    check("页面路由已注册", len(context.routes) == 12, str(len(context.routes)))
+    check("指令表已填充", len(plugin.command_map) == 11, str(len(plugin.command_map)))
+    check("页面路由已注册", len(context.routes) == 14, str(len(context.routes)))
     route_paths = {r[0] for r in context.routes}
     for expected in (
         "dashboard",
@@ -440,17 +444,34 @@ async def exercise(plugin, context, module, config) -> None:
     await anext_result(plugin.on_all_message(event2))
     check("聊天不再提供手动修改角色", not event2.stopped and not event2.sent)
 
-    event3 = AstrMessageEvent("角色查看")
+    plugin.query_output = "text"
+    event3 = AstrMessageEvent("角色")
     before = len(plugin.rendered)
     await anext_result(plugin.on_all_message(event3))
     check(
-        "角色查看固定文本输出",
+        "角色支持文本输出",
         len(plugin.rendered) == before and all(r.kind == "plain" for r in event3.sent),
     )
     check(
         "角色文本包含名字和ID",
         "小明" in event3.texts() and "123456789" in event3.texts(),
     )
+    plugin.query_output = "image"
+    role_image = AstrMessageEvent("角色")
+    await anext_result(plugin.on_all_message(role_image))
+    check(
+        "角色支持表格图片输出",
+        any(result.kind == "image" for result in role_image.sent),
+    )
+    check(
+        "角色图片只提供三列角色字段",
+        all(
+            label in plugin.rendered[-1][0] for label in ("游戏昵称", "营地 ID", "别名")
+        ),
+    )
+    old_roles = AstrMessageEvent("角色查看")
+    await anext_result(plugin.on_all_message(old_roles))
+    check("角色查看已更名为角色", not old_roles.stopped and not old_roles.sent)
 
     event4 = AstrMessageEvent("角色查询 小明")
     await anext_result(plugin.on_all_message(event4))
@@ -497,6 +518,33 @@ async def exercise(plugin, context, module, config) -> None:
     config["query_output"] = "图片"
     plugin._setup_config()
     check("配置页面图片选项生效", plugin.query_output == "image")
+    saved_config = Mock()
+    saved_config.get.side_effect = config.get
+    with patch.object(plugin, "conf", saved_config):
+        config["analysis"]["prompt"] = module.PREVIOUS_DEFAULT_ANALYSIS_PROMPT
+        plugin._setup_config()
+        check(
+            "旧默认分析提示词自动升级并保存",
+            config["analysis"]["prompt"] == module.DEFAULT_ANALYSIS_PROMPT
+            and config["analysis"]["select_provider"] == "stub-provider"
+            and saved_config.save_config.call_count == 1,
+        )
+        saved_config.save_config.reset_mock()
+        config["analysis"]["prompt"] = "自定义分析格式"
+        plugin._setup_config()
+        check(
+            "自定义分析提示词不会被覆盖",
+            config["analysis"]["prompt"] == "自定义分析格式"
+            and saved_config.save_config.call_count == 0,
+        )
+        config["analysis"]["prompt"] = module.PREVIOUS_DEFAULT_ANALYSIS_PROMPT
+        saved_config.save_config.side_effect = PermissionError("只读配置")
+        plugin._setup_config()
+        check(
+            "配置保存失败仍使用新默认提示词",
+            config["analysis"]["prompt"] == module.DEFAULT_ANALYSIS_PROMPT,
+        )
+    config["analysis"].pop("prompt")
     import importlib.util
 
     fixture_spec = importlib.util.spec_from_file_location(
@@ -543,28 +591,15 @@ async def exercise(plugin, context, module, config) -> None:
                     "带场数指令将参数转换为整数", action.await_args.kwargs["limit"] == 3
                 )
 
+    print("\n[AI 分析指令]")
     check(
-        "独立锐评指令已移除",
-        "锐评" not in plugin.command_map and "战绩锐评" not in plugin.command_map,
+        "锐评入口和发送能力已移除",
+        "锐评" not in plugin.command_map
+        and not hasattr(plugin.sender, "comment_battle"),
     )
-    custom_prompt = '请温柔点评，输出 JSON：{"点评":"内容"}'
-    plugin.comment_prompt = custom_prompt
     for mode in ("text", "image"):
         plugin.query_output = mode
-        review_event = AstrMessageEvent("战绩 489048724")
-        observed = []
-
-        async def review_after_send(**kwargs):
-            observed.append(
-                {
-                    "prompt": kwargs["prompt"],
-                    "first_kind": review_event.sent[0].kind
-                    if review_event.sent
-                    else None,
-                }
-            )
-            return types.SimpleNamespace(completion_text="测试自动锐评")
-
+        report_event = AstrMessageEvent("战绩 489048724")
         with (
             patch.object(
                 plugin.service,
@@ -575,100 +610,37 @@ async def exercise(plugin, context, module, config) -> None:
                     )
                 ),
             ),
-            patch.object(
-                context, "llm_generate", AsyncMock(side_effect=review_after_send)
-            ),
-        ):
-            await anext_result(plugin.on_all_message(review_event))
-        check(
-            f"{mode} 战绩发送后自动跟发一次锐评",
-            len(observed) == 1
-            and len(review_event.sent) == 2
-            and review_event.sent[-1].payload == "测试自动锐评"
-            and observed[0]["first_kind"] == ("plain" if mode == "text" else "image"),
-        )
-        check(
-            "自定义提示词保留JSON括号并附带实际对局",
-            observed[0]["prompt"].startswith(custom_prompt)
-            and '"killcnt": 8' in observed[0]["prompt"],
-        )
-
-    plugin.query_output = "text"
-    for enabled, result in (
-        (
-            False,
-            plugin.service.ok(fixture_module.CASES["battle.html"], temp="battle.html"),
-        ),
-        (True, plugin.service.err("查询失败")),
-    ):
-        plugin.comment_enabled = enabled
-        failed_or_disabled = AstrMessageEvent("战绩 489048724")
-        with (
-            patch.object(
-                plugin.service, "battle_report", AsyncMock(return_value=result)
-            ),
             patch.object(context, "llm_generate", AsyncMock()) as model,
         ):
-            await anext_result(plugin.on_all_message(failed_or_disabled))
-            check(
-                "关闭锐评或查询失败不会调用模型",
-                model.await_count == 0 and len(failed_or_disabled.sent) == 1,
-            )
-    plugin.comment_enabled = True
-    send_failure = AstrMessageEvent("战绩 489048724")
-    with (
-        patch.object(
-            plugin.service,
-            "battle_report",
-            AsyncMock(
-                return_value=plugin.service.ok(
-                    fixture_module.CASES["battle.html"], temp="battle.html"
-                )
-            ),
-        ),
-        patch.object(
-            send_failure, "send", AsyncMock(side_effect=RuntimeError("send failure"))
-        ),
-        patch.object(context, "llm_generate", AsyncMock()) as model,
-    ):
-        try:
-            await plugin.cmd_battle(send_failure, "489048724")
-        except RuntimeError:
-            check("数据发送失败不追加锐评", model.await_count == 0)
-        else:
-            check("数据发送失败不追加锐评", False)
-    plugin.query_output = "image"
-    battle_fallback = AstrMessageEvent("战绩 489048724")
-    with (
-        patch.object(
-            plugin.service,
-            "battle_report",
-            AsyncMock(
-                return_value=plugin.service.ok(
-                    fixture_module.CASES["battle.html"], temp="battle.html"
-                )
-            ),
-        ),
-        patch.object(
-            plugin,
-            "html_render",
-            AsyncMock(side_effect=RuntimeError("renderer unavailable")),
-        ),
-        patch.object(
-            context,
-            "llm_generate",
-            AsyncMock(
-                return_value=types.SimpleNamespace(completion_text="回退文本后的锐评")
-            ),
-        ),
-    ):
-        await plugin.cmd_battle(battle_fallback, "489048724")
+            await anext_result(plugin.on_all_message(report_event))
         check(
-            "图片失败但文本发送成功仍追加锐评",
-            len(battle_fallback.sent) == 2
-            and "文本结果" in battle_fallback.sent[0].payload
-            and battle_fallback.sent[1].payload == "回退文本后的锐评",
+            f"{mode} 战绩只发送查询结果且不调用模型",
+            len(report_event.sent) == 1 and model.await_count == 0,
         )
+        analysis_event = AstrMessageEvent("分析 489048724 2")
+        before = len(plugin.rendered)
+        with patch.object(
+            plugin.analysis,
+            "analyze",
+            AsyncMock(return_value=plugin.service.ok("【获胜方】\n原因：测试分析")),
+        ) as analyze:
+            await anext_result(plugin.on_all_message(analysis_event))
+        check(
+            f"{mode} 输出配置下分析仅发送模型文本",
+            len(analysis_event.sent) == 1
+            and analysis_event.sent[0].kind == "plain"
+            and len(plugin.rendered) == before
+            and "测试分析" in analysis_event.texts(),
+        )
+        check("分析序号按整数传给共用服务", analyze.await_args.args == ("489048724", 2))
+    plugin.query_output = "image"
+    for message, expected in (
+        ("分析", "请提供营地 ID"),
+        ("分析 489048724 0", "从 1 开始"),
+    ):
+        event = AstrMessageEvent(message)
+        await anext_result(plugin.on_all_message(event))
+        check("分析缺参或非法序号给出说明", expected in event.texts())
     with (
         patch.object(
             plugin.service,
@@ -691,6 +663,31 @@ async def exercise(plugin, context, module, config) -> None:
             "渲染失败回退到真实资料文本",
             "测试玩家" in fallback_event.texts()
             and "文本结果" in fallback_event.texts(),
+        )
+    with (
+        patch.object(
+            plugin.service,
+            "list_aliases",
+            AsyncMock(
+                return_value=plugin.service.ok(
+                    fixture_module.CASES["aliases.html"], temp="aliases.html"
+                )
+            ),
+        ),
+        patch.object(
+            plugin,
+            "html_render",
+            AsyncMock(side_effect=RuntimeError("renderer unavailable")),
+        ),
+    ):
+        role_fallback = AstrMessageEvent("角色")
+        await anext_result(plugin.on_all_message(role_fallback))
+        check(
+            "角色图片失败回退到三列文本",
+            "文本结果" in role_fallback.texts()
+            and "游戏昵称 | 营地ID | 别名" in role_fallback.texts()
+            and "小明 | 123456789 |" in role_fallback.texts()
+            and all(item.kind == "plain" for item in role_fallback.sent),
         )
 
     print("\n[页面接口]")
@@ -842,7 +839,9 @@ async def exercise(plugin, context, module, config) -> None:
     # 插件页面运行在 sandbox iframe（无 allow-modals）中：
     # window.confirm/alert 会被静默忽略，必须用页面内弹窗。
     app_js = ROOT / "pages" / "camp-console" / "app.js"
-    source = app_js.read_text(encoding="utf-8")
+    source = "\n".join(
+        path.read_text(encoding="utf-8") for path in app_js.parent.rglob("*.js")
+    )
     for banned in ("window.confirm(", "window.alert(", "window.prompt("):
         check(f"未使用被 sandbox 禁用的 {banned.rstrip('(')}", banned not in source)
     check("使用页面内确认框", "askConfirm" in source)

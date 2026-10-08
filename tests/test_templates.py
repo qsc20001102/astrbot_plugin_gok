@@ -95,6 +95,7 @@ CASES: dict[str, dict] = {
             {
                 **MATCH,
                 "win": False,
+                "result": "lose",
                 "result_text": "失败",
                 "mvp_type": "svp",
                 "medal": "",
@@ -118,7 +119,6 @@ CASES: dict[str, dict] = {
             "svp_count": 3,
             "gold_count": 8,
         },
-        "comment": [{"killcnt": 8}],
     },
     "profile.html": {
         "profile": PROFILE,
@@ -244,10 +244,10 @@ CASES: dict[str, dict] = {
 
 
 async def main() -> int:
-    from jinja2 import Environment
+    from jinja2.sandbox import SandboxedEnvironment
 
     repo = TemplateRepository(ROOT / "templates")
-    env = Environment(autoescape=True)
+    env = SandboxedEnvironment(autoescape=True)
 
     print("[模板文件]")
     available = repo.available()
@@ -293,11 +293,11 @@ async def main() -> int:
             f"{name} 模板铺满画布而非固定宽度",
             "width: 100%;" in html and "min-width:" in html,
         )
-    for token in ("测试玩家", "赵云", "金牌打野", "胜利", "失败", "败方MVP", "15:35"):
+    for token in ("测试玩家", "赵云", "金牌打野", "胜利", "失败", "SVP", "15:35"):
         check(f"战绩页包含「{token}」", token in battle_html)
 
     profile_html = rendered.get("profile.html", "")
-    for token in ("沈梦溪", "100.0%", "6200", "微信389区", "最强王者"):
+    for token in ("沈梦溪", "100%", "6,200", "微信389区", "最强王者"):
         check(f"资料页包含「{token}」", token in profile_html)
     # 隐藏战绩的玩家应出现提示
     check("隐藏战绩提示", "隐藏战绩" in rendered.get("profile_empty.html", ""))
@@ -307,6 +307,27 @@ async def main() -> int:
     detail_html = rendered.get("detail.html", "")
     check("详情页含双方", "蓝方" in detail_html and "红方" in detail_html)
     check("详情页标出目标玩家", "target" in detail_html)
+    check(
+        "详情图片不包含本场表现或地图回顾",
+        "本场表现" not in detail_html and "地图回顾" not in detail_html,
+    )
+    check(
+        "装备与召唤师技能分列",
+        "<th>出装</th>" in detail_html and "<th>召唤师技能</th>" in detail_html,
+    )
+    check(
+        "公共片段已合并，远端不依赖模板 include",
+        "GOK:REPORT" not in detail_html and "share-track" in detail_html,
+    )
+    role_html = rendered.get("aliases.html", "")
+    columns = re.findall(r"<th>(.*?)</th>", role_html)
+    check(
+        "角色图片只有昵称、营地ID、别名三列", columns == ["游戏昵称", "营地 ID", "别名"]
+    )
+    check(
+        "角色营地ID没有千分位",
+        "123456789" in role_html and "123,456,789" not in role_html,
+    )
 
     print("\n" + "=" * 60)
     print(f"通过 {len(PASSED)} 项，失败 {len(FAILED)} 项")

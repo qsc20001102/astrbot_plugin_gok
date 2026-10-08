@@ -48,13 +48,13 @@ class CampDataApi:
         self.client = client
 
     async def search_users(self, nickname: str) -> list[dict[str, Any]]:
-        """Search Camp for users matching a nickname.
+        """按昵称搜索营地用户。
 
         Args:
-            nickname: Search text.
+            nickname: 用户提供的搜索昵称。
 
         Returns:
-            Candidate users with Camp IDs and display metadata.
+            去重后的候选用户，含营地 ID 和展示信息。
         """
         payload = await self.client.request(
             "/search/getbytype", build_search_request(nickname), protobuf=True
@@ -107,16 +107,17 @@ class CampDataApi:
         page_delay: float = BATTLE_PAGE_DELAY_SECONDS,
         option: int = 0,
     ) -> dict[str, Any]:
-        """Fetch recent matches directly from Camp, following its page cursor.
+        """沿营地游标实时读取近期战绩，并处理分页边界去重。
 
         Args:
-            camp_id: Camp ID to query.
-            max_pages: Maximum number of pages to request.
-            max_matches: Maximum number of matches to return.
-            page_delay: Delay between pages in seconds.
+            camp_id: 目标玩家的营地 ID。
+            max_pages: 最多请求页数。
+            max_matches: 最多返回对局数。
+            page_delay: 相邻分页请求的间隔秒数。
+            option: 营地战绩模式筛选值。
 
         Returns:
-            Match list, number of fetched pages, and whether more pages exist.
+            战绩列表、已读取页数和是否仍有后续页。
         """
 
         collected: list[dict[str, Any]] = []
@@ -175,6 +176,21 @@ class CampDataApi:
         }
 
     # ------------------------------------------------------------------ 对局详情
+    async def get_battle_replay(
+        self, *, game_seq: str, game_svr: str, relay_svr: str, player_id: str
+    ) -> dict[str, Any]:
+        """查询地图回顾；playerId 来自单局详情，不能用角色 ID 替代。"""
+        return await self.client.request(
+            "/game/battleanalyze/old",
+            {
+                "gameSeq": str(game_seq),
+                "gameSvr": str(game_svr),
+                "relaySvr": str(relay_svr),
+                "playerId": str(player_id),
+                "h5Get": 1,
+            },
+        )
+
     async def get_battle_detail(
         self,
         *,

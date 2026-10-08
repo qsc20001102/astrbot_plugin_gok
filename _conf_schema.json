@@ -1,129 +1,116 @@
 {
-    "prefix": {
-        "description": "指令前缀",
-        "type": "object",
-        "items": {
-            "enable": {
-                "description": "是否启用",
-                "type": "bool",
-                "default": false,
-                "hint": "开启后只有在指令前加上前缀才会触发，可避免与其他插件的指令冲突。"
-            },
-            "text": {
-                "description": "前缀内容",
-                "type": "string",
-                "default": "王者",
-                "hint": "例如填「王者」则需发送「王者战绩 123456789」。开启但留空时按未启用处理。"
-            }
-        }
-    },
-    "query_output": {
-        "description": "查询指令输出方式",
-        "type": "string",
-        "options": ["图片", "文本"],
-        "default": "图片",
-        "hint": "仅影响「战绩」「资料」「对局」及其同义指令。图片使用 AstrBot 自带 HTML 渲染；文本只展示重要信息。「功能」「角色查看」固定输出文本。"
-    },
-    "battle_limit": {
-        "description": "战绩默认显示场数",
-        "type": "int",
-        "default": 10,
-        "slider": {
-            "min": 1,
-            "max": 25,
-            "step": 1
-        },
-        "hint": "「战绩」指令未带场数参数时使用；单次最多显示 25 场。"
-    },
-    "account_cooldown": {
-        "description": "账号冷却时间（秒）",
-        "type": "int",
-        "default": 300,
-        "slider": {
-            "min": 0,
-            "max": 1800,
-            "step": 30
-        },
-        "hint": "某个营地账号触发频控后暂时停用的时长；期间若配置了多个账号会自动切换到其它账号。"
-    },
-    "request_timeout": {
-        "description": "接口超时（秒）",
-        "type": "int",
-        "default": 15,
-        "slider": {
-            "min": 5,
-            "max": 60,
-            "step": 1
-        },
-        "hint": "单次请求营地接口的最长等待时间，网络较差时可适当调大。"
-    },
-    "tls_verify": {
-        "description": "TLS 证书校验",
+  "prefix": {
+    "description": "指令前缀",
+    "type": "object",
+    "items": {
+      "enable": {
+        "description": "是否启用",
         "type": "bool",
-        "default": true,
-        "hint": "建议保持开启；仅在受信任的调试环境下才临时关闭。"
-    },
-    "comment": {
-        "description": "战绩自动锐评",
-        "type": "object",
-        "items": {
-            "enable": {
-                "description": "是否启用",
-                "type": "bool",
-                "default": false,
-                "hint": "开启后「战绩」指令成功发送图片或文本后，自动追加一条模型锐评。"
-            },
-            "prompt": {
-                "description": "锐评提示词",
-                "type": "text",
-                "default": "请根据提供的王者荣耀最近对局数据，用简短的一句话进行锐评吐槽。要口语化、有梗，不要复述数据。",
-                "hint": "修改点评的风格、语气和长度。实际展示的对局数据会自动附在提示词后，无需填写占位符。"
-            },
-            "select_provider": {
-                "description": "锐评模型",
-                "type": "string",
-                "default": "",
-                "_special": "select_provider",
-                "hint": "留空时使用当前会话的默认对话模型。"
-            }
-        }
-    },
-    "image": {
-        "description": "图片渲染",
-        "type": "object",
-        "items": {
-            "format": {
-                "description": "输出格式",
-                "type": "string",
-                "options": [
-                    "jpeg",
-                    "png"
-                ],
-                "default": "jpeg",
-                "hint": "JPEG 体积更小；PNG 无损但文件更大。"
-            },
-            "device_scale_factor": {
-                "description": "渲染清晰度",
-                "type": "string",
-                "options": [
-                    "1.0",
-                    "1.3",
-                    "1.8"
-                ],
-                "default": "1.3",
-                "hint": "数值越高越清晰，同时图片更大、渲染更慢。"
-            },
-            "jpeg_quality": {
-                "description": "JPEG 质量",
-                "type": "int",
-                "default": 100,
-                "slider": {
-                    "min": 1,
-                    "max": 100,
-                    "step": 1
-                },
-                "hint": "仅在输出格式为 JPEG 时生效。"
-            }
-        }
+        "default": false,
+        "hint": "开启后只有在指令前加上前缀才会触发，可避免与其他插件的指令冲突。"
+      },
+      "text": {
+        "description": "前缀内容",
+        "type": "string",
+        "default": "王者",
+        "hint": "例如填「王者」则需发送「王者战绩 123456789」。开启但留空时按未启用处理。"
+      }
     }
+  },
+  "query_output": {
+    "description": "查询指令输出方式",
+    "type": "string",
+    "options": ["图片", "文本"],
+    "default": "图片",
+    "hint": "影响「战绩」「资料」「对局」「角色」及其同义指令。图片使用 AstrBot 自带 HTML 渲染；文本展示简明结果。「功能」固定输出文本。"
+  },
+  "battle_limit": {
+    "description": "战绩默认显示场数",
+    "type": "int",
+    "default": 10,
+    "slider": {
+      "min": 1,
+      "max": 25,
+      "step": 1
+    },
+    "hint": "「战绩」指令未带场数参数时使用；单次最多显示 25 场。"
+  },
+  "account_cooldown": {
+    "description": "账号冷却时间（秒）",
+    "type": "int",
+    "default": 300,
+    "slider": {
+      "min": 0,
+      "max": 1800,
+      "step": 30
+    },
+    "hint": "某个营地账号触发频控后暂时停用的时长；期间若配置了多个账号会自动切换到其它账号。"
+  },
+  "request_timeout": {
+    "description": "接口超时（秒）",
+    "type": "int",
+    "default": 15,
+    "slider": {
+      "min": 5,
+      "max": 60,
+      "step": 1
+    },
+    "hint": "单次请求营地接口的最长等待时间，网络较差时可适当调大。"
+  },
+  "tls_verify": {
+    "description": "TLS 证书校验",
+    "type": "bool",
+    "default": true,
+    "hint": "建议保持开启；仅在受信任的调试环境下才临时关闭。"
+  },
+  "analysis": {
+    "description": "AI 对局分析",
+    "type": "object",
+    "items": {
+      "prompt": {
+        "description": "分析提示词",
+        "type": "text",
+        "default": "你是一名王者荣耀职业教练。请结合双方阵容、全体玩家活动轨迹、关键事件及输出、承伤、经济等统计，仔细分析该场对局。\n说明获胜方为什么获胜、决定胜负的关键转折在哪里，以及哪位玩家的关键决策或行动推动了胜利；说明失败方为什么失败、失利的关键点，以及有明确证据支持的主要责任人和具体失误。\n关键点尽量引用对局时间、英雄或昵称及对应事件。不要只凭 KDA、评分或伤害排名定责，辅助与前排应结合参团、承伤、控制等职责评价。证据不足时写“无法确定”，不要强行指定背锅者。\n每项用一至两句说明，总体简洁明了，直戳要害，不要长篇大论、开场白、表格或格式之外的附加内容。严格按以下格式输出：\n【对局时间】-【对局模式】-【所用英雄】\n【【获胜方】】\n【原因】：\n【关键点】：\n【【失败方】】\n【原因】：\n【关键点】：\n【背锅】：",
+        "hint": "设置分析目标、语气和输出格式；留空使用默认职业教练提示词。双方详情、轨迹与关键事件会自动附加，数据含义说明固定在程序中，无需写占位符。"
+      },
+      "select_provider": {
+        "description": "分析模型",
+        "type": "string",
+        "default": "",
+        "_special": "select_provider",
+        "hint": "请明确选择已配置的对话模型，地图回顾页面和「分析」指令使用同一个模型；未选择时会提示配置。建议选择支持较长上下文的模型。"
+      }
+    }
+  },
+  "image": {
+    "description": "图片渲染",
+    "type": "object",
+    "items": {
+      "format": {
+        "description": "输出格式",
+        "type": "string",
+        "options": ["jpeg", "png"],
+        "default": "jpeg",
+        "hint": "JPEG 体积更小；PNG 无损但文件更大。"
+      },
+      "device_scale_factor": {
+        "description": "渲染清晰度",
+        "type": "string",
+        "options": ["1.0", "1.3", "1.8"],
+        "default": "1.3",
+        "hint": "数值越高越清晰，同时图片更大、渲染更慢。"
+      },
+      "jpeg_quality": {
+        "description": "JPEG 质量",
+        "type": "int",
+        "default": 100,
+        "slider": {
+          "min": 1,
+          "max": 100,
+          "step": 1
+        },
+        "hint": "仅在输出格式为 JPEG 时生效。"
+      }
+    }
+  }
 }

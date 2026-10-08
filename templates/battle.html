@@ -1,205 +1,120 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<title>{{ data.query_title or "全部战绩" }}</title>
-<style>
-  :root {
-    --gold: #e8c37a;
-    --gold-dim: #b99a5b;
-    --text: #e8edf7;
-    --muted: #93a0bb;
-    --panel: #182034;
-    --panel-2: #1f2941;
-    --win: #5fce8f;
-    --lose: #e2685f;
-    --blue: #5aa9e6;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    width: 100%;
-    min-width: 1040px;
-    background: linear-gradient(160deg, #0f1523 0%, #131b2c 100%);
-    color: var(--text);
-    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
-    padding: 20px;
-  }
-  .player {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    background: linear-gradient(120deg, #1d2740 0%, #182034 60%);
-    border: 1px solid #2b3752;
-    border-radius: 12px;
-    padding: 14px 18px;
-    margin-bottom: 14px;
-  }
-  .avatar {
-    width: 62px; height: 62px; border-radius: 50%;
-    border: 2px solid var(--gold-dim);
-    object-fit: cover;
-    background: #253050;
-  }
-  .avatar-fallback {
-    width: 62px; height: 62px; border-radius: 50%;
-    border: 2px solid var(--gold-dim);
-    background: #253050;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 37.4px; color: var(--gold);
-  }
-  .who { flex: 1; }
-  .query-title { font-size: 24px; font-weight: 600; color: var(--gold); margin-bottom: 14px; }
-  .who .name { font-size: 31.2px; font-weight: 600; letter-spacing: .5px; }
-  .who .meta { font-size: 18.7px; color: var(--muted); margin-top: 5px; }
-  .who .meta em { color: var(--gold); font-style: normal; }
-  .rank-box {
-    text-align: right;
-    padding-left: 16px;
-    border-left: 1px solid #2b3752;
-  }
-  .rank-box { display: flex; flex: 0 0 170px; flex-direction: column; align-items: center; text-align: center; }
-  .rank-box .rank { font-size: 26.4px; color: var(--gold); font-weight: 600; }
-  .rank-emblem { width: 148px; height: 118px; object-fit: contain; }
-  .rank-stars { width: 144px; height: 35px; object-fit: contain; margin-bottom: -12px; position: relative; z-index: 1; }
-  .rank-box .stars { font-size: 18.7px; color: var(--muted); margin-top: 4px; }
-
-  .summary { display: flex; gap: 10px; margin-bottom: 14px; }
-  .stat {
-    flex: 1;
-    background: var(--panel);
-    border: 1px solid #26304a;
-    border-radius: 10px;
-    padding: 10px 12px;
-    text-align: center;
-  }
-  .stat .v { font-size: 31.2px; font-weight: 700; }
-  .stat .k { font-size: 17.2px; color: var(--muted); margin-top: 3px; letter-spacing: .5px; }
-  .stat .v.win { color: var(--win); }
-  .stat .v.lose { color: var(--lose); }
-  .stat .v.gold { color: var(--gold); }
-
-  table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 10px; overflow: hidden; }
-  thead th {
-    background: #1c2438;
-    color: var(--muted);
-    font-size: 17.2px;
-    font-weight: 600;
-    letter-spacing: .5px;
-    padding: 9px 8px;
-    text-align: center;
-    white-space: nowrap;
-  }
-  tbody td { padding: 8px; font-size: 19.4px; text-align: center; border-top: 1px solid #212b42; }
-  tbody tr:nth-child(even) { background: #1a2233; }
-  tr.win { box-shadow: inset 4px 0 0 var(--win); }
-  tr.lose { box-shadow: inset 4px 0 0 var(--lose); }
-  .hero { display: flex; align-items: center; gap: 8px; text-align: left; }
-  .hero img { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #33405e; object-fit: cover; }
-  .hero .hero-name { font-size: 20.3px; }
-  .hero .mode { font-size: 16.4px; color: var(--muted); margin-top: 2px; }
-  .res { font-weight: 700; }
-  .res.win { color: var(--win); }
-  .res.lose { color: var(--lose); }
-  .kda { font-family: Consolas, monospace; font-size: 20.3px; }
-  .kda i { font-style: normal; color: var(--muted); margin: 0 2px; }
-  .kda .d { color: var(--lose); }
-  .score { font-weight: 700; color: var(--gold); }
-  .honor { font-size: 17.2px; color: var(--gold-dim); line-height: 1.4; }
-  .honor { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 94px; }
-  .honor img { height: 35px; max-width: 94px; object-fit: contain; vertical-align: middle; }
-  .mvp { color: #ffd479; font-weight: 700; }
-  .svp { color: #a9c6ff; font-weight: 700; }
-  .time { font-size: 17.2px; color: var(--muted); line-height: 1.4; }
-  .foot { margin-top: 12px; text-align: right; font-size: 17.2px; color: #6b7893; }
-</style>
-</head>
-<body>
-  {% set p = data.profile %}
-  {% set s = data.summary %}
-  <div class="query-title">{{ data.query_title or '全部战绩' }}</div>
-  <div class="player">
-    {% if p.avatar %}
-      <img class="avatar" src="{{ p.avatar }}" alt="">
-    {% else %}
-      <div class="avatar-fallback">{{ p.nickname[:1] }}</div>
-    {% endif %}
-    <div class="who">
-      <div class="name">{{ p.nickname }}</div>
-      <div class="meta">
-        营地 ID：{{ p.camp_id }} · {{ p.area_name }}
-        {% if p.season_games %} · 本赛季 <em>{{ p.season_games }}</em> 场{% endif %}
-        {% if p.season_games %} · 胜率 <em>{{ p.win_rate }}%</em>{% endif %}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1200, height=1" />
+    <title>{{ data.query_title or '全部战绩' }}</title>
+    <style>
+      <!-- GOK:REPORT_STYLE -->
+    </style>
+  </head>
+  <body class="battle-report">
+    <!-- GOK:REPORT_MACROS -->
+    <h1>{{ data.query_title or '全部战绩' }}</h1>
+    {{ identity(data.profile) }} {% set summary = data.summary %}
+    <div class="summary-strip">
+      <div>
+        <strong>最近 {{ summary.total or data.list | length }} 场</strong>
+      </div>
+      <div>
+        <span class="muted">胜率</span
+        ><strong>{{ number(summary.win_rate, '%') }}</strong>
+      </div>
+      <div>
+        <span class="muted">场均 KDA</span
+        ><strong>{{ number(summary.avg_kda) }}</strong>
+      </div>
+      <div>
+        <span class="muted">平均评分</span
+        ><strong
+          >{{ number(summary.avg_score if summary.avg_score and
+          summary.avg_score > 0 else none) }}</strong
+        >
       </div>
     </div>
-    <div class="rank-box">
-      {% if p.rank_stars_icon %}<img class="rank-stars" src="{{ p.rank_stars_icon }}" alt="{{ p.current_stars }} 星">{% else %}<div class="stars">{{ p.current_stars }} 星</div>{% endif %}
-      {% if p.rank_icon %}<img class="rank-emblem" src="{{ p.rank_icon }}" alt="{{ p.rank_label }}">{% endif %}
-      <div class="rank">{{ p.rank_label }}</div>
-      {% if p.peak_score %}<div class="stars">巅峰 {{ p.peak_score }}</div>{% endif %}
-    </div>
-  </div>
-
-  <div class="summary">
-    <div class="stat"><div class="v">{{ s.total }}</div><div class="k">近期场次</div></div>
-    <div class="stat"><div class="v win">{{ s.wins }}</div><div class="k">胜场</div></div>
-    <div class="stat"><div class="v lose">{{ s.loses }}</div><div class="k">负场</div></div>
-    <div class="stat"><div class="v {{ 'win' if s.win_rate >= 50 else 'lose' }}">{{ s.win_rate }}%</div><div class="k">胜率</div></div>
-    <div class="stat"><div class="v">{{ s.avg_kda }}</div><div class="k">平均 KDA</div></div>
-    <div class="stat"><div class="v gold">{{ s.avg_score }}</div><div class="k">平均评分</div></div>
-    <div class="stat"><div class="v gold">{{ s.mvp_count }}</div><div class="k">MVP</div></div>
-    <div class="stat"><div class="v gold">{{ s.gold_count }}</div><div class="k">金牌</div></div>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th>英雄 / 模式</th>
-        <th>结果</th>
-        <th>KDA</th>
-        <th>评分</th>
-        <th>荣誉</th>
-        <th>时长</th>
-        <th>段位</th>
-        <th>时间</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for m in data.list %}
-      <tr class="{{ 'win' if m.win else 'lose' }}">
-        <td>
-          <div class="hero">
-            {% if m.hero_icon %}<img src="{{ m.hero_icon }}" alt="">{% endif %}
-            <div>
-              <div class="hero-name">{{ m.hero_name }}</div>
-              <div class="mode">{{ m.mode_name }}</div>
+    <div class="section-heading"><h2>近期对局</h2></div>
+    <table class="battle-table">
+      <colgroup>
+        <col class="col-number" />
+        <col class="col-hero" />
+        <col class="col-time" />
+        <col class="col-kda" />
+        <col class="col-honor" />
+        <col class="col-duration" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>英雄</th>
+          <th>对局</th>
+          <th>KDA</th>
+          <th>评分 / 荣誉</th>
+          <th>时长</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for match in data.list %}
+        <tr
+          class="{{ 'win' if match.result == 'win' else 'lose' if match.result == 'lose' else 'unknown' }}"
+        >
+          <td class="muted">{{ loop.index }}</td>
+          <td>
+            <div class="hero-cell">
+              {{ image(match.hero_icon, match.hero_name) }}
+              <div>
+                <strong>{{ match.hero_name }}</strong
+                ><small
+                  >{{ match.mode_name }}{% if match.rank_name %} · {{
+                  match.rank_name }} {{ match.stars }}星{% endif %}{% for streak
+                  in match.kill_streaks or [] %} · {{ streak.label }}{% endfor
+                  %}{% if match.first_blood %} · 一血{% endif %}</small
+                >
+              </div>
             </div>
-          </div>
-        </td>
-        <td><span class="res {{ 'win' if m.win else 'lose' }}">{{ m.result_text }}</span></td>
-        <td>
-          <span class="kda">
-            {{ m.kills }}<i>/</i><span class="d">{{ m.deaths }}</span><i>/</i>{{ m.assists }}
-          </span>
-        </td>
-        <td><span class="score">{{ m.score_text }}</span></td>
-        <td>
-          <div class="honor">
-            {% if m.mvp_icon %}<img src="{{ m.mvp_icon }}" alt="{{ '败方MVP' if m.mvp_type == 'svp' else 'MVP' }}" onerror="this.style.display='none'">{% endif %}
-            {% if m.medal_icon %}<img src="{{ m.medal_icon }}" alt="{{ m.medal }}" onerror="this.style.display='none'">{% endif %}
-          </div>
-        </td>
-        <td>{{ m.duration_text }}</td>
-        <td style="font-size: 17.2px">
-          {{ m.rank_name or '-' }}
-          {% if m.rank_name and m.stars is not none %}<div style="color:#93a0bb">{{ m.stars }}星</div>{% endif %}
-          {% if m.mode == 'peak' and m.peak_delta is not none %}<div>{{ '+' if m.peak_delta >= 0 else '' }}{{ m.peak_delta }} 分</div>{% endif %}
-        </td>
-        <td><div class="time">{{ m.played_at }}</div></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <div class="foot">数据时间：{{ data_time }} · 数据来源：王者营地</div>
-</body>
+          </td>
+          <td>
+            <span class="battle-time">{{ match.played_at }}</span
+            ><span
+              class="battle-result {{ 'success' if match.result == 'win' else 'danger' if match.result == 'lose' else 'muted' }}"
+              >{{ match.result_text }}</span
+            >
+          </td>
+          <td>{{ match.kills }} / {{ match.deaths }} / {{ match.assists }}</td>
+          <td>
+            <div class="score-cell">
+              {{ number(match.score if match.score and match.score > 0 else
+              none) }}
+              <div class="honor">
+                {% if match.mvp_type %}{% if match.mvp_icon %}{{
+                image(match.mvp_icon, 'SVP' if match.mvp_type == 'svp' else
+                'MVP', 'honor-image') }}{% else %}<span class="honor-label"
+                  >{{ 'SVP' if match.mvp_type == 'svp' else 'MVP' }}</span
+                >{% endif %}{% endif %}{% if match.medal %}{% if
+                match.medal_icon %}{{ image(match.medal_icon, match.medal,
+                'honor-image') }}{% else %}<span class="honor-label"
+                  >{{ match.medal }}</span
+                >{% endif %}{% endif %}
+              </div>
+            </div>
+          </td>
+          <td>
+            {{ match.duration_text if match.duration_sec and match.duration_sec
+            > 0 else '—' }}{% if match.peak_delta is not none and
+            match.peak_delta is defined %}
+            <div class="muted">
+              巅峰 {{ '+' if match.peak_delta > 0 else '' }}{{
+              number(match.peak_delta) }}
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="list-note">
+      展示 {{ data.list | length }} 场 · 统计最近 {{ summary.total or data.list
+      | length }} 场
+    </p>
+    {{ footer(data_time) }}
+  </body>
 </html>

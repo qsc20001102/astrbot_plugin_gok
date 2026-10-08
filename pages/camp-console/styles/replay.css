@@ -1,0 +1,424 @@
+/* 地图回顾：官方底图、时间轴与可定位的事件列表。 */
+.replay-layout {
+  display: grid;
+  /* 桌面按视口高度限制地图宽度，保留正方形投影并让播放控件可见。 */
+  grid-template-columns:
+    minmax(0, min(560px, max(360px, calc(100vh - 500px))))
+    minmax(280px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.replay-map-panel,
+.replay-events-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  min-width: 0;
+}
+.replay-map-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.replay-map-tools select {
+  max-width: none;
+  border: 0;
+  font-size: 13px;
+  padding: 6px;
+}
+#replay-player {
+  flex: 1;
+  min-width: 0;
+}
+.replay-trail-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.replay-trail-tools label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.replay-map-tools label {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.replay-map {
+  position: relative;
+  aspect-ratio: 1;
+  background: #233348;
+}
+.replay-map > img {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  object-fit: contain;
+}
+.replay-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.tower-marker {
+  pointer-events: none;
+}
+.player-marker {
+  cursor: pointer;
+}
+.player-marker .player-selection {
+  opacity: 0;
+}
+.player-marker.selected .player-selection {
+  opacity: 1;
+}
+.replay-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+}
+.replay-play {
+  background: var(--primary);
+  color: white;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.replay-play .icon {
+  width: 18px;
+  height: 18px;
+}
+.replay-time {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.replay-slider {
+  width: 100%;
+  accent-color: var(--primary);
+  min-width: 50px;
+}
+.replay-speed {
+  font-size: 12px;
+  min-height: 30px;
+  padding: 3px 6px;
+}
+.map-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 14px 12px;
+  flex-wrap: wrap;
+  row-gap: 5px;
+}
+.trail-window {
+  margin: 0;
+  border: 1px solid var(--line) !important;
+  border-radius: 5px;
+  background: var(--surface);
+  padding: 3px 6px !important;
+  min-height: 30px;
+  font-size: 12px;
+  color: var(--text);
+}
+.replay-live-event {
+  position: absolute;
+  z-index: 1;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid #ffffff26;
+  border-radius: 7px;
+  background: #122137ed;
+  color: white;
+  box-shadow: 0 4px 16px #0003;
+  pointer-events: none;
+}
+.live-event-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.live-event-row + .live-event-row {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid #ffffff24;
+}
+.live-event-row time {
+  color: #a9bfff;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  width: 34px;
+  flex: none;
+  margin-top: 2px;
+}
+.live-event-row strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.live-event-row span {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: #c1cce1;
+  line-height: 1.5;
+}
+.live-event-more {
+  font-size: 11px;
+  color: #c1cce1;
+  margin-top: 5px;
+}
+.map-key {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+.map-key i {
+  width: 6px;
+  height: 6px;
+  background: var(--primary);
+  border-radius: 50%;
+}
+.map-key.enemy i {
+  background: var(--danger);
+}
+.map-key.event i {
+  background: #d5a74f;
+}
+.replay-events-panel {
+  padding: 20px;
+}
+.replay-events-panel h2 {
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+.event-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.event-filter {
+  border: 0;
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 5px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.event-filter.active {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.event-list {
+  max-height: 520px;
+  overflow: auto;
+}
+.event-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 17px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: white;
+  color: var(--text);
+}
+.event-row:hover,
+.event-row.active {
+  background: var(--primary-soft);
+}
+.event-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--primary);
+  margin-top: 9px;
+}
+.event-dot.tower {
+  background: var(--gold);
+}
+.event-dot.resource {
+  background: #369b85;
+}
+.event-time {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 42px;
+  margin-top: 1px;
+}
+.event-body {
+  flex: 1;
+  min-width: 0;
+}
+.event-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+.event-description {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+.event-context {
+  border-top: 1px solid #dce5f6;
+  margin-top: 10px;
+  padding-top: 8px;
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.8;
+}
+.event-list-note {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 12px;
+}
+.map-message {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+}
+.replay-state {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--muted);
+}
+.replay-state h3 {
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.replay-state .button {
+  margin-top: 18px;
+}
+.analysis-panel {
+  margin-top: 28px;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.analysis-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.analysis-heading h2 {
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+.analysis-heading p,
+.analysis-status {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.analysis-status {
+  margin: 18px 0 0;
+}
+.analysis-status.error {
+  color: var(--danger);
+}
+.analysis-result {
+  margin: 20px 0 0;
+  padding: 24px;
+  background: var(--surface-2, #fff);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.9;
+}
+@media (max-width: 1100px) {
+  .replay-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 0.9fr);
+  }
+  .replay-events-panel {
+    padding: 16px;
+  }
+  .replay-controls {
+    gap: 8px;
+  }
+  .replay-time {
+    font-size: 11px;
+  }
+  .event-row {
+    gap: 8px;
+    padding: 14px 2px;
+  }
+}
+@media (max-width: 800px) {
+  .analysis-panel {
+    padding: 18px;
+  }
+  .analysis-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .analysis-result {
+    padding: 18px;
+    font-size: 14px;
+  }
+  .replay-layout {
+    grid-template-columns: 1fr;
+  }
+  .replay-events-panel {
+    padding: 20px;
+  }
+  .event-list {
+    max-height: 360px;
+  }
+  .replay-controls {
+    padding: 12px;
+    gap: 10px;
+  }
+  .replay-speed {
+    display: none;
+  }
+  .replay-map-tools {
+    padding: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  #replay-player {
+    flex-basis: 100%;
+  }
+  .replay-trail-tools {
+    margin-left: auto;
+  }
+  .replay-map-tools select {
+    font-size: 12px;
+  }
+  .map-message {
+    font-size: 11px;
+  }
+  .event-row {
+    padding: 14px 6px;
+  }
+  .event-title {
+    font-size: 13px;
+  }
+}

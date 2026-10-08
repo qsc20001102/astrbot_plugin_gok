@@ -283,10 +283,10 @@ class CampClient:
         raise CampApiError("尚未登录王者营地，请先在插件页面扫码登录", "auth")
 
     async def validate_accounts(self) -> dict[str, Any]:
-        """Check every saved account with its own credentials, without failover.
+        """用各账号自身凭据独立验证，不通过换号掩盖失败。
 
         Returns:
-            Per-account public outcomes and counts, including transient errors.
+            逐账号公开检测结果与各状态的统计。
         """
         async with self._validation_lock:
             results = []

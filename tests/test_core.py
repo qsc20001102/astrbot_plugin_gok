@@ -20,13 +20,12 @@ sys.path.insert(0, str(ROOT))
 
 from test_plugin import install_stubs  # noqa: E402
 
-# Reuse the host API stub to keep the offline suite independent of AstrBot.
+# 复用宿主接口桩，让离线测试不依赖运行中的 AstrBot。
 install_stubs()
 
 from core import camp_crypto, xxtea  # noqa: E402
 from core.heroes import hero_repository  # noqa: E402
 from core.models import (  # noqa: E402
-    build_battle_comment,
     parse_battle_row,
     parse_honors,
     parse_profile,
@@ -340,11 +339,6 @@ def test_models() -> None:
     )
     check("旧式奖牌回退 = 银牌发育路", legacy["medal"] == "银牌发育路", legacy["medal"])
 
-    comment = build_battle_comment([match])
-    check(
-        "锐评数据字段完整", comment[0]["killcnt"] == 8 and comment[0]["gameresult"] == 1
-    )
-
 
 # --------------------------------------------------------------------- 存储
 async def test_storage() -> None:
@@ -473,7 +467,11 @@ async def test_login_sessions() -> None:
 
 
 async def test_login_completion() -> None:
-    """Verify concurrent completion, retries, and deletion of saved logins."""
+    """验证并发登录完成、持久化重试与账号删除。
+
+    Returns:
+        无；断言结果写入测试统计。
+    """
     print("\n[登录完成与重试]")
     from core import camp_login
     from core.camp_auth import CampAccount, CampAuthStore
@@ -633,7 +631,11 @@ async def test_login_completion() -> None:
 
 
 async def test_live_reads() -> None:
-    """Verify fresh data is fetched for repeated player and template reads."""
+    """验证资料、战绩与模板均实时读取。
+
+    Returns:
+        无；断言结果写入测试统计。
+    """
     print("\n[实时读取]")
     from core.camp_api import CampDataApi
     from core.service import GokService
@@ -712,10 +714,10 @@ async def test_live_reads() -> None:
 
 
 async def test_http_streaming() -> None:
-    """Verify full HTTP bodies are consumed across delayed network chunks.
+    """验证跨延迟分块完整读取 HTTP 正文。
 
     Returns:
-        None. Records regression results in the suite counters.
+        无；断言结果写入测试统计。
     """
     print("\n[HTTP 分块响应]")
     from aiohttp import web
@@ -785,10 +787,10 @@ async def test_http_streaming() -> None:
 
 
 async def test_account_validation() -> None:
-    """Verify checks use each account's credentials and preserve login races.
+    """验证逐账号检测与重新登录之间的并发一致性。
 
     Returns:
-        None. Records assertions in the suite counters.
+        无；断言结果写入测试统计。
     """
     print("\n[全部登录态检测]")
     from core.camp_auth import CampAccount, CampAuthStore
@@ -884,10 +886,10 @@ async def test_account_validation() -> None:
 
 
 async def test_name_mapping_and_match_identity() -> None:
-    """Verify automatic names, legacy migration, and clicked-match identity.
+    """验证名称迁移、自动记录与点击对局的稳定定位。
 
     Returns:
-        None. Records assertions in the suite counters.
+        无；断言结果写入测试统计。
     """
     print("\n[自动角色名称和点击对局]")
     from core.camp_client import CampApiError
@@ -1051,10 +1053,10 @@ def main() -> int:
 
 
 def test_equipment_fields() -> None:
-    """Verify confirmed Camp equipment and hero-level fields stay per player.
+    """验证营地装备与等级字段仍对应正确的玩家。
 
     Returns:
-        None. Records assertions in the suite counters.
+        无；断言结果写入测试统计。
     """
     from core.service import _parse_battle_detail
 

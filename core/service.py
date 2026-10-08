@@ -17,17 +17,16 @@ from .camp_api import CampDataApi
 from .camp_auth import CampAuthStore
 from .camp_client import CampApiError
 from .camp_login import CampLoginManager
-from .heroes import hero_repository
 from .models import (
     MatchRecord,
     PlayerProfile,
     SeasonStats,
-    build_battle_comment,
-    collect_image_resources,
     parse_battle_row,
     parse_profile,
     parse_season_stats,
 )
+from .models_detail import parse_battle_detail as _parse_battle_detail
+from .models_replay import parse_battle_replay
 from .storage import GokStorage
 
 __all__ = ["GokService", "ServiceResult"]
@@ -199,7 +198,7 @@ class GokService:
     async def battle_report(
         self, keyword: str, limit: int = 10, *, option: int = 0
     ) -> ServiceResult:
-        """「战绩」：最近对局列表 + 汇总 + 锐评数据。"""
+        """「战绩」：最近对局列表与统计汇总。"""
         if option not in (0, 1, 4):
             return self.err("不支持的战绩类型")
         camp_id, error = await self.require_camp_id(keyword)
@@ -255,7 +254,6 @@ class GokService:
                 "svp_count": sum(1 for m in matches if m.mvp_type == "svp"),
                 "gold_count": sum(1 for m in matches if m.gold),
             },
-            "comment": build_battle_comment(shown, limit=len(shown)),
         }
         await self._remember_player(profile)
         return self.ok(data, temp="battle.html")
@@ -319,11 +317,73 @@ class GokService:
         await self._remember_player(profile)
         return self.ok(data, temp="detail.html")
 
-    async def _remember_player(self, profile: PlayerProfile) -> None:
-        """Persist real nicknames after successful queries through either input path.
+    async def battle_replay(
+        self,
+        keyword: str,
+        index: int = 1,
+        *,
+        game_seq: str = "",
+        detail_data: dict[str, Any] | None = None,
+    ) -> ServiceResult:
+        """按同一场对局的详情参数获取地图回顾，独立失败不影响概览。
 
         Args:
-            profile: Successfully retrieved player profile.
+            keyword: 玩家营地 ID、昵称或别名。
+            index: 近期对局序号。
+            game_seq: 已选中的对局标识。
+            detail_data: 服务内部已查到的同场详情，可避免 AI 分析重复查询。
+
+        Returns:
+            规范化回顾或查询错误；不把其它比赛当成当前对局。
+        """
+        if detail_data is None:
+            detail = await self.battle_detail(keyword, index, game_seq=game_seq)
+            if detail.get("code") != 200:
+                return detail
+            data = detail["data"]
+        else:
+            data = detail_data
+            if game_seq and data.get("match", {}).get("game_seq") != game_seq:
+                return self.err("对局详情与地图回顾标识不一致，请重新查询")
+        target = data.get("target") or {}
+        player_id = str(target.get("player_id") or "")
+        if not player_id:
+            return self.ok(
+                {
+                    "available": False,
+                    "message": "这场对局未返回被查询玩家的回顾标识，暂无法获取地图回顾",
+                    "players": [],
+                    "events": [],
+                }
+            )
+        match = data["match"]
+        try:
+            payload = await self.api.get_battle_replay(
+                game_seq=match["game_seq"],
+                game_svr=match["game_svr"],
+                relay_svr=match["relay_svr"],
+                player_id=player_id,
+            )
+        except CampApiError as exc:
+            return self.err(self.error_message(exc))
+        replay = parse_battle_replay(
+            payload,
+            player_id,
+            match.get("duration_sec", 0),
+            data.get("blue", []) + data.get("red", []),
+        )
+        replay["match"] = match
+        replay["profile"] = data["profile"]
+        return self.ok(replay)
+
+    async def _remember_player(self, profile: PlayerProfile) -> None:
+        """查询成功后记录真实游戏昵称，同时保留人工别名。
+
+        Args:
+            profile: 已经解析成功的玩家资料。
+
+        Returns:
+            无；有真实昵称时更新名称映射。
         """
         if profile.nickname not in {
             "",
@@ -349,7 +409,7 @@ class GokService:
     async def list_aliases(self) -> ServiceResult:
         aliases = await self.storage.list_aliases()
         if not aliases:
-            return self.err("还没有保存角色，请先使用营地 ID 或昵称查询资料、战绩")
+            return self.err("暂无角色记录，查询资料或战绩后会自动保存")
         return self.ok({"list": aliases}, temp="aliases.html")
 
     async def search_aliases(self, keyword: str) -> ServiceResult:
@@ -401,88 +461,3 @@ def _as_list(value: Any) -> list[Any]:
 def _unwrap(payload: dict[str, Any]) -> dict[str, Any]:
     inner = payload.get("data")
     return inner if isinstance(inner, dict) else payload
-
-
-def _parse_battle_detail(
-    payload: dict[str, Any], target_role_id: str
-) -> dict[str, Any]:
-    """从对局详情里抽出双方十人面板，并标出目标玩家。"""
-    data = _unwrap(payload)
-    blue = [r for r in _as_list(data.get("blueRoles")) if isinstance(r, dict)]
-    red = [r for r in _as_list(data.get("redRoles")) if isinstance(r, dict)]
-
-    def to_row(role: dict[str, Any], index: int) -> dict[str, Any]:
-        basic = _as_dict(role.get("basicInfo"))
-        stats = _as_dict(role.get("battleStats"))
-        records = _as_dict(role.get("battleRecords"))
-        used_hero = _as_dict(records.get("usedHero")) or _as_dict(basic.get("usedHero"))
-        equipment = [
-            {
-                "id": str(item.get("equipId") or ""),
-                "name": str(item.get("equipName") or ""),
-                "icon": str(item.get("equipIcon") or ""),
-            }
-            for item in _as_list(records.get("finalEquips"))
-            if isinstance(item, dict)
-            and (item.get("equipId") or item.get("equipName") or item.get("equipIcon"))
-        ]
-        skill = _as_dict(records.get("skill"))
-        role_id = str(basic.get("roleId") or "")
-        hero_id = str(
-            records.get("heroId")
-            or used_hero.get("heroId")
-            or basic.get("heroId")
-            or ""
-        )
-        return {
-            "index": index,
-            "role_id": role_id,
-            "nickname": str(basic.get("roleName") or basic.get("nickname") or ""),
-            "hero_id": hero_id,
-            "hero_name": hero_repository.name(hero_id) if hero_id else "",
-            "hero_icon": str(
-                records.get("heroIcon") or used_hero.get("heroIcon") or ""
-            ),
-            "avatar": str(basic.get("roleIcon") or ""),
-            "equipment": equipment,
-            "skill": {
-                "id": str(skill.get("skillId") or ""),
-                "name": str(skill.get("skillName") or ""),
-                "icon": str(skill.get("skillIcon") or ""),
-            },
-            "image_resources": collect_image_resources(role),
-            "level": int(stats.get("heroLevel", stats.get("level")))
-            if stats.get("heroLevel", stats.get("level")) is not None
-            else None,
-            "kills": int(stats.get("killCnt") or stats.get("killcnt") or 0),
-            "deaths": int(stats.get("deadCnt") or stats.get("deadcnt") or 0),
-            "assists": int(stats.get("assistCnt") or stats.get("assistcnt") or 0),
-            "money": int(stats.get("money") or 0),
-            "hurt": int(
-                stats.get("totalHeroHurtCnt") or stats.get("totalHurtCnt") or 0
-            ),
-            "behurt": int(
-                stats.get("totalBeheroHurtCnt") or stats.get("totalBehurtCnt") or 0
-            ),
-            "fight_power": int(stats.get("fightPower") or 0),
-            "is_target": bool(target_role_id and role_id == target_role_id),
-        }
-
-    blue_rows = [to_row(role, i + 1) for i, role in enumerate(blue)]
-    red_rows = [to_row(role, i + 1) for i, role in enumerate(red)]
-    for rows in (blue_rows, red_rows):
-        total_hurt = sum(row["hurt"] for row in rows)
-        total_behurt = sum(row["behurt"] for row in rows)
-        for row in rows:
-            row["hurt_percent"] = (
-                round(row["hurt"] / total_hurt * 100, 1) if total_hurt else None
-            )
-            row["behurt_percent"] = (
-                round(row["behurt"] / total_behurt * 100, 1) if total_behurt else None
-            )
-    return {
-        "blue": blue_rows,
-        "red": red_rows,
-        "has_detail": bool(blue_rows or red_rows),
-        "image_resources": collect_image_resources(data),
-    }

@@ -1,0 +1,2 @@
+# 构建产物由 esbuild 维护格式，开发时修改分模块源码。
+pages/camp-console/app.bundle.js

@@ -46,7 +46,7 @@ class GokStorage:
                 for row in await self.db.fetch_all("PRAGMA table_info(aliases)")
             }
             if columns and "alias" not in columns:
-                # Preserve administrator names; unresolved legacy nicknames stay empty.
+                # 保留人工别名；尚未验证的历史游戏昵称保持为空。
                 role_column = "role_name" if "role_name" in columns else "''"
                 alias_column = (
                     "CASE WHEN manually_named=1 THEN name ELSE '' END"
@@ -111,11 +111,14 @@ class GokStorage:
         return True
 
     async def remember_player(self, gokid: int, role_name: str) -> None:
-        """Record the queried role name while preserving administrator edits.
+        """保存接口确认的游戏昵称，不覆盖管理员设置的别名。
 
         Args:
-            gokid: Successfully queried Camp ID.
-            role_name: Game role name returned by Camp.
+            gokid: 目标营地 ID。
+            role_name: 接口返回的真实游戏昵称。
+
+        Returns:
+            真实昵称有效并完成保存时为真。
         """
         now = time.time()
         await self.db.execute(

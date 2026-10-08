@@ -1,7 +1,7 @@
 name: astrbot_plugin_gok 
-display_name: 王者营地数据查询
-desc: 扫码登录王者营地后实时查询玩家战绩、资料与对局详情；数据直连营地官方接口，不使用第三方接口，不缓存任何玩家数据。支持角色别名与战绩锐评。
-version: v2.4.2
+display_name: 王者荣耀数据查询工具
+desc: 扫码登录王者营地后查询玩家战绩、资料与对局详情；数据直连营地官方接口，不使用第三方接口，不缓存玩家数据。支持角色别名与 AI 对局分析。
+version: v2.5.0
 author: 飞翔大野猪 
 repo: https://github.com/qsc20001102/astrbot_plugin_gok 
 astrbot_version: ">=4.24.0"

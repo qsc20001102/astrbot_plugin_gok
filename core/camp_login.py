@@ -16,9 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import hashlib
 import json
-import random
 import secrets
 import time
 import urllib.parse
@@ -36,41 +34,22 @@ from .camp_crypto import (
     rsa_encrypt_chunked,
 )
 from .http import HttpClient
+from .login_protocol import (
+    CAMP_BASE_URL,
+    CLIENT_HEADERS,
+    COMMON_HEADERS,
+    _build_device_payload,
+)
+from .login_qq import QQLoginFlow, exchange_qq_code
+from .login_wechat import WechatLoginProtocol
 
 __all__ = ["CampLoginManager", "CampLoginSession", "QR_SESSION_TTL_SECONDS"]
 
-APPID_WX = "wxf4b1e8a3e9aaf978"
-CAMP_BASE_URL = "https://ssl.kohsocialapp.qq.com:10001"
-WX_QR_URL = "https://open.weixin.qq.com/connect/sdk/qrconnect"
-WX_POLL_URL = "https://long.open.weixin.qq.com/connect/l/qrconnect"
 
 QR_SESSION_TTL_SECONDS = 300
 
-COMMON_HEADERS: dict[str, str] = {
-    "Content-Encrypt": "",
-    "Accept-Encrypt": "",
-    "NOENCRYPT": "1",
-    "X-Client-Proto": "https",
-    "User-Agent": "okhttp/4.9.1",
-}
 
 # 客户端指纹（营地 Android 客户端常量），登录时同时用于请求头与表单。
-CLIENT_HEADERS: dict[str, str] = {
-    "cChannelId": "10003391",
-    "cClientVersionCode": "2057957801",
-    "cClientVersionName": "10.111.0323",
-    "cCurrentGameId": "20001",
-    "cGameId": "20001",
-    "cGzip": "1",
-    "cIsArm64": "true",
-    "cSupportArm64": "true",
-    "cSystem": "android",
-    "cSystemVersionCode": "34",
-    "cSystemVersionName": "14",
-    "cpuHardware": "qcom",
-    "gameId": "20001",
-    "tinkerId": "2057957801_64_0",
-}
 
 
 @dataclass
@@ -86,6 +65,9 @@ class CampLoginSession:
     account: CampAccount | None = field(default=None, repr=False)
     result: dict[str, Any] | None = field(default=None, repr=False)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+    platform: str = "wechat"
+    qq_flow: QQLoginFlow | None = field(default=None, repr=False)
+    creation_task: asyncio.Task | None = field(default=None, repr=False)
 
     @property
     def expired(self) -> bool:
@@ -98,11 +80,16 @@ class CampLoginSession:
     @property
     def qrcode_mime(self) -> str:
         """二维码实际图片类型 —— 微信返回的是 JPEG，不是 PNG。"""
-        return detect_image_mime(self.qrcode_base64)
+        return (
+            "image/png"
+            if self.platform == "qq"
+            else detect_image_mime(self.qrcode_base64)
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "task_id": self.task_id,
+            "platform": self.platform,
             "qrcode_base64": self.qrcode_base64,
             "qrcode_mime": self.qrcode_mime,
             "created_at": self.created_at,
@@ -125,47 +112,12 @@ def detect_image_mime(base64_data: str) -> str:
     return "image/jpeg"
 
 
-def _build_nonce(length: int = 8) -> str:
-    return "".join(str(random.randint(0, 9)) for _ in range(length))
-
-
-def _build_device_payload() -> dict[str, Any]:
-    """构造登录用的设备指纹 JSON。"""
-    timestamp = int(time.time() * 1000)
-    device_id = secrets.token_hex(16)
-    nonce = f":{secrets.token_hex(16)}:{timestamp}"
-    return {
-        "timestamp": timestamp,
-        "nonce": nonce,
-        "cDeviceId": device_id,
-        "deviceid": device_id,
-        "cDeviceImei": device_id[:15],
-        "cDeviceMac": "02:00:00:00:00:00",
-        "cDevicePPI": 480,
-        "cDeviceScreenWidth": 1080,
-        "cDeviceScreenHeight": 2400,
-        "cDeviceBrand": "OnePlus",
-        "cDeviceModel": "PHK110",
-        "cDeviceMem": 12 * 1024 * 1024 * 1024,
-        "cDeviceCPU": "SM8650",
-        "cSystemVersionCode": "34",
-        "cDeviceNet": "WIFI",
-        "cDeviceSP": "China Mobile",
-        "cDeviceOaid": device_id,
-        "deviceLevel": 3,
-        "px": 0,
-        "py": 0,
-        "wifi_ssid": "unknown",
-        "wifi_mac": "02:00:00:00:00:00",
-    }
-
-
 def _iso_now() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
 
-# Share transient login state between managers in the same loaded module.
-# Refreshing the page can resume it; restarting/reloading the module cannot.
+# 同一模块实例内共享临时登录会话，使页面刷新后可以恢复。
+# 进程重启或插件重载后不会恢复这份内存会话。
 _SESSIONS: dict[str, CampLoginSession] = {}
 
 
@@ -190,7 +142,7 @@ def active_sessions() -> list[CampLoginSession]:
     )
 
 
-class CampLoginManager:
+class CampLoginManager(WechatLoginProtocol):
     """管理扫码会话并完成登录换票。"""
 
     def __init__(
@@ -216,122 +168,15 @@ class CampLoginManager:
                 "message": "已取消登录",
                 "terminal": True,
             }
+            if session.qq_flow:
+                if session.creation_task and not session.creation_task.done():
+                    session.creation_task.cancel()
+                asyncio.create_task(session.qq_flow.close())
 
     def list_sessions(self) -> list[CampLoginSession]:
         return active_sessions()
 
     # ------------------------------------------------------------------ 步骤实现
-    async def _fetch_sdk_ticket(self, x_log_uid: str) -> tuple[str, str]:
-        """返回 (sdkTicket, 错误信息)。"""
-        response = await self.http.request(
-            "POST",
-            f"{CAMP_BASE_URL}/a/getwxsdkticket",
-            headers={**COMMON_HEADERS, "x-log-uid": x_log_uid},
-        )
-        if not response.ok:
-            return "", response.error or f"HTTP {response.status}"
-        payload = response.json() or {}
-        if payload.get("returnCode") != 0:
-            return "", str(payload.get("returnMsg") or "获取 sdkTicket 失败")
-        ticket = str((payload.get("data") or {}).get("sdkTicket") or "")
-        if not ticket:
-            return "", "获取 sdkTicket 失败：响应缺少 sdkTicket"
-        return ticket, ""
-
-    async def _fetch_qrcode(self, ticket: str) -> tuple[dict[str, str] | None, str]:
-        nonce = _build_nonce()
-        timestamp = str(int(time.time()))
-        signature = hashlib.sha1(
-            f"appid={APPID_WX}&noncestr={nonce}&sdk_ticket={ticket}&timestamp={timestamp}".encode()
-        ).hexdigest()
-        query = urllib.parse.urlencode(
-            {
-                "appid": APPID_WX,
-                "noncestr": nonce,
-                "timestamp": timestamp,
-                "scope": "snsapi_userinfo",
-                "signature": signature,
-            }
-        )
-        response = await self.http.request("GET", f"{WX_QR_URL}?{query}")
-        if not response.ok:
-            return None, response.error or f"HTTP {response.status}"
-        payload = response.json() or {}
-        if payload.get("errcode") != 0:
-            return None, str(payload.get("errmsg") or "获取二维码失败")
-        qr_uuid = str(payload.get("uuid") or "")
-        qrcode = str((payload.get("qrcode") or {}).get("qrcodebase64") or "")
-        if not qr_uuid or not qrcode:
-            return None, "获取二维码失败：响应不完整"
-        return {"uuid": qr_uuid, "qrcode_base64": qrcode}, ""
-
-    async def _poll_wechat(self, qr_uuid: str) -> dict[str, Any]:
-        query = urllib.parse.urlencode({"f": "json", "uuid": qr_uuid})
-        response = await self.http.request("GET", f"{WX_POLL_URL}?{query}", timeout=35)
-        if not response.ok:
-            return {"error": response.error or f"HTTP {response.status}"}
-        payload = response.json()
-        if not isinstance(payload, dict):
-            return {"error": "微信登录服务返回格式异常，请稍后重试"}
-        return payload
-
-    async def _login_with_code(
-        self, code: str, x_log_uid: str
-    ) -> tuple[dict[str, Any] | None, str]:
-        """用微信 authCode 换取营地登录态。"""
-        # 登录用的 specialEncodeParam 必须携带完整设备指纹（与查询接口的简版不同）。
-        device_payload = json.dumps(_build_device_payload(), separators=(",", ":"))
-        special_encode_param = base64.b64encode(
-            rsa_encrypt_chunked(device_payload.encode("utf-8"), self.public_key)
-        ).decode("ascii")
-
-        form = {
-            "loginType": "wx",
-            "code": code,
-            "delOldUser": "0",
-            "key1": secrets.token_hex(16),
-            "lastLoginTime": "0",
-            "lastGetRemarkTime": "0",
-            "cChannelId": "10003391",
-            "cClientVersionCode": "2057957801",
-            "cClientVersionName": "10.111.0323",
-            "cCurrentGameId": "20001",
-            "cGameId": "20001",
-            "cGzip": "1",
-            "cIsArm64": "true",
-            "cRand": str(int(time.time() * 1000)),
-            "cSupportArm64": "true",
-            "cSystem": "android",
-            "cSystemVersionCode": "34",
-            "cSystemVersionName": "14",
-            "cpuHardware": "qcom",
-            "gameId": "20001",
-            "tinkerId": "2057957801_64_0",
-            "specialEncodeParam": special_encode_param,
-        }
-        headers = {
-            **COMMON_HEADERS,
-            **CLIENT_HEADERS,
-            "x-log-uid": x_log_uid,
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "cRand": str(int(time.time() * 1000)),
-            "specialEncodeParam": special_encode_param,
-        }
-        response = await self.http.request(
-            "POST",
-            f"{CAMP_BASE_URL}/user/login",
-            headers=headers,
-            data=urllib.parse.urlencode(form),
-        )
-        if not response.ok:
-            return None, response.error or f"HTTP {response.status}"
-        payload = response.json() or {}
-        if payload.get("returnCode") != 0:
-            return None, str(payload.get("returnMsg") or "营地登录失败")
-        data = payload.get("data") or {}
-        if not data.get("userId") or not data.get("token"):
-            return None, "营地登录失败：缺少 userId 或 token"
-        return data, ""
 
     @staticmethod
     def build_account(
@@ -362,9 +207,31 @@ class CampLoginManager:
         )
 
     # ------------------------------------------------------------------ 对外接口
-    async def create_session(self) -> tuple[CampLoginSession | None, str]:
+    async def create_session(
+        self, platform: str = "wechat"
+    ) -> tuple[CampLoginSession | None, str]:
         """新建一次扫码会话；返回 (会话, 错误信息)。"""
         _prune_sessions()
+        if platform not in {"wechat", "qq"}:
+            return None, "登录方式只支持微信或 QQ"
+        if len(active_sessions()) >= 4:
+            return None, "进行中的扫码会话过多，请先取消旧会话"
+        if platform == "qq":
+            flow = QQLoginFlow()
+            now = time.time()
+            session = CampLoginSession(
+                secrets.token_urlsafe(16),
+                str(uuid.uuid4()).upper(),
+                "",
+                "",
+                now,
+                now + 180,
+                platform="qq",
+                qq_flow=flow,
+            )
+            _SESSIONS[session.task_id] = session
+            session.creation_task = asyncio.create_task(self._prepare_qq(session))
+            return session, ""
         x_log_uid = str(uuid.uuid4()).upper()
         ticket, error = await self._fetch_sdk_ticket(x_log_uid)
         if not ticket:
@@ -390,14 +257,13 @@ class CampLoginManager:
         return session, ""
 
     async def poll(self, task_id: str) -> dict[str, Any]:
-        """Poll one login attempt and persist credentials before reporting success.
+        """轮询扫码结果，先保存凭据再报告成功。
 
         Args:
-            task_id: Identifier returned when creating the QR code.
+            task_id: 创建扫码会话时返回的标识。
 
         Returns:
-            Login status, with a terminal flag for completed attempts. Repeated
-            polls return the same outcome without redeeming the code again.
+            带终态标记的登录结果；重复轮询不再次兑换授权码。
         """
         session = self.get_session(task_id)
         if session is None:
@@ -418,6 +284,8 @@ class CampLoginManager:
                 return session.result
 
             if session.account is None:
+                if session.platform == "qq":
+                    return await self._poll_qq(session)
                 payload = await self._poll_wechat(session.uuid)
                 if session.result is not None:
                     return session.result
@@ -472,8 +340,8 @@ class CampLoginManager:
                         "message": f"微信扫码状态异常({status_code})，正在重试",
                     }
 
-            # Keep the redeemed account if saving fails, so a retry only writes
-            # credentials instead of redeeming the single-use WeChat code again.
+            # 保存失败时保留已兑换的账号，下一次仅重试写入，
+            # 不重复兑换只能使用一次的微信授权码。
             if self.auth_store is not None:
                 try:
                     await self.auth_store.upsert(session.account)
@@ -491,3 +359,156 @@ class CampLoginManager:
             session.expires_at = max(session.expires_at, time.time() + 60)
             logger.info("营地扫码登录完成：%s", session.account.display_name)
             return session.result
+
+    async def _poll_qq(self, session: CampLoginSession) -> dict[str, Any]:
+        """在会话锁内完成 QQ 换票，并先保存账号再向页面报告成功。"""
+        if not session.qq_flow:
+            return {"status": "expired", "message": "QQ 会话已不存在", "terminal": True}
+        if session.creation_task and not session.creation_task.done():
+            return {"status": "preparing", "message": "正在准备 QQ 登录二维码"}
+        progress = await session.qq_flow.poll()
+        if progress.get("status") != "authorized":
+            if progress.get("terminal"):
+                session.result = progress
+                await session.qq_flow.close()
+            return {
+                **progress,
+                "platform": "qq",
+                "qrcode_base64": session.qrcode_base64,
+                "qrcode_mime": session.qrcode_mime,
+                "expires_in": session.remaining_seconds,
+            }
+        try:
+            tokens = await exchange_qq_code(self.http, progress["code"])
+            if session.result is not None:
+                return session.result
+            data = await self._login_qq(tokens, session.x_log_uid)
+            if session.result is not None:
+                return session.result
+            data = {
+                **data,
+                "accessToken": tokens["accessToken"],
+                "refreshToken": tokens.get("refreshToken", ""),
+            }
+            session.account = self.build_account(
+                data, session.x_log_uid, self.public_key
+            )
+            session.account.login_platform = "qq"
+            if not session.account.ready or not session.account.resolve_user_key():
+                raise ValueError("QQ 营地登录响应缺少有效安全参数，请重新扫码")
+        except (ValueError, TypeError) as exc:
+            session.result = {"status": "error", "message": str(exc), "terminal": True}
+            session.account = None
+            return session.result
+        finally:
+            await session.qq_flow.close()
+        # 下一次 poll 会复用已换到的账号，仅重试持久化，不再次兑换单次授权码。
+        if self.auth_store is not None:
+            try:
+                await self.auth_store.upsert(session.account)
+            except (OSError, ValueError):
+                return {
+                    "status": "error",
+                    "message": "保存登录态失败，请重试",
+                    "terminal": False,
+                }
+        session.result = {
+            "status": "success",
+            "account": session.account,
+            "terminal": True,
+        }
+        return session.result
+
+    async def _prepare_qq(self, session: CampLoginSession) -> None:
+        """后台准备二维码，避免浏览器启动超过宿主页面请求时限。"""
+        assert session.qq_flow is not None
+        try:
+            image = await session.qq_flow.start(ttl_seconds=180)
+            if session.result is not None:
+                await session.qq_flow.close()
+                return
+            session.qrcode_base64 = image
+            session.created_at = time.time()
+            session.expires_at = session.created_at + 180
+        except asyncio.CancelledError:
+            await session.qq_flow.close()
+            raise
+        except Exception as exc:
+            session.result = {
+                "status": "error",
+                "message": str(exc)
+                if isinstance(exc, RuntimeError)
+                else "QQ 二维码准备失败，请稍后重试",
+                "terminal": True,
+            }
+            await session.qq_flow.close()
+
+    async def _login_qq(self, tokens: dict[str, Any], x_log_uid: str) -> dict[str, Any]:
+        """使用 QQ 平台凭据调用营地 openSdk 登录分支。"""
+        device_payload = json.dumps(_build_device_payload(), separators=(",", ":"))
+        special = base64.b64encode(
+            rsa_encrypt_chunked(device_payload.encode("utf-8"), self.public_key)
+        ).decode("ascii")
+        form = {
+            **CLIENT_HEADERS,
+            "cClientVersionCode": "2057971306",
+            "cClientVersionName": "10.114.0826",
+            "cSystemVersionCode": "35",
+            "cSystemVersionName": "15",
+            "tinkerId": "2057971306_64_0",
+            "cRand": str(int(time.time() * 1000)),
+            "delOldUser": "0",
+            "key1": secrets.token_hex(16),
+            "lastLoginTime": "0",
+            "lastGetRemarkTime": "0",
+            "specialEncodeParam": special,
+            "loginType": "openSdk",
+            "accessToken": str(tokens["accessToken"]),
+            "openId": str(tokens["openID"]),
+            "payToken": str(tokens.get("payToken") or ""),
+        }
+        response = await self.http.request(
+            "POST",
+            f"{CAMP_BASE_URL}/user/login",
+            headers={
+                **COMMON_HEADERS,
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "x-log-uid": x_log_uid,
+            },
+            data=urllib.parse.urlencode(form),
+        )
+        payload = response.json() or {}
+        if not isinstance(payload, dict):
+            raise ValueError("QQ 营地登录响应格式异常，请重新扫码")
+        data = payload.get("data")
+        if (
+            not response.ok
+            or payload.get("returnCode") != 0
+            or not isinstance(data, dict)
+            or not data.get("userId")
+            or not data.get("token")
+        ):
+            raise ValueError("QQ 营地登录失败，请重新扫码")
+        return data
+
+    async def close(self) -> None:
+        """插件停用时取消扫码，并回收仍然打开的 QQ 浏览器会话。"""
+        sessions = tuple(_SESSIONS.values())
+        for session in sessions:
+            if session.result is None:
+                session.result = {
+                    "status": "canceled",
+                    "message": "插件已停用",
+                    "terminal": True,
+                }
+            if session.creation_task and not session.creation_task.done():
+                session.creation_task.cancel()
+        await asyncio.gather(
+            *(session.creation_task for session in sessions if session.creation_task),
+            return_exceptions=True,
+        )
+        await asyncio.gather(
+            *(session.qq_flow.close() for session in sessions if session.qq_flow),
+            return_exceptions=True,
+        )
+        _SESSIONS.clear()

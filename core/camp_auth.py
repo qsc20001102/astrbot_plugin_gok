@@ -104,6 +104,7 @@ class CampAccount:
             "user_id": self.user_id,
             "nickname": self.display_name,
             "avatar": self.avatar,
+            "login_platform": self.login_platform,
             "last_login_at": self.last_login_at,
             "expires": self.expires,
             "cooled_until": self.cooled_until,
@@ -250,15 +251,15 @@ class CampAuthStore:
     async def record_validation(
         self, checked: CampAccount, status: str, message: str
     ) -> bool:
-        """Save an auth check only if the checked credentials are still current.
+        """仅在被检测凭据仍然有效时保存检测结果。
 
         Args:
-            checked: Account snapshot used for the check.
-            status: valid, invalid, rate_limit, or error.
-            message: Public outcome without credentials.
+            checked: 发起检测时的账号和凭据快照。
+            status: 本次检测得到的状态。
+            message: 公开的检测或错误说明。
 
         Returns:
-            Whether the outcome was applied to the current account.
+            凭据仍匹配且结果已保存时为真。
         """
         async with self._lock:
             accounts = self._read_sync()

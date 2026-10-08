@@ -27,7 +27,7 @@ from test_plugin import (  # noqa: E402
 
 install_stubs()
 
-# Exercise the host implementation when present, without starting AstrBot.
+# 宿主代码可用时验证其真实实现，但不启动 AstrBot。
 host_waiter = ROOT.parents[2] / "astrbot/core/utils/session_waiter.py"
 if host_waiter.is_file():
     message = types.ModuleType("astrbot.core.message")
@@ -76,11 +76,14 @@ FAILED: list[str] = []
 
 
 def check(label: str, condition: bool) -> None:
-    """Record one observable behavior.
+    """记录一个可观察行为的测试结果。
 
     Args:
-        label: Assertion description.
-        condition: Whether the behavior passed.
+        label: 测试行为的说明。
+        condition: 该行为是否符合预期。
+
+    Returns:
+        无；断言结果写入测试统计。
     """
     (PASSED if condition else FAILED).append(label)
     print(f"{'PASS' if condition else 'FAIL'} {label}")
@@ -89,16 +92,16 @@ def check(label: str, condition: bool) -> None:
 async def deliver(
     module, text: str, sender: str = "test-sender", origin: str = "test:session"
 ) -> bool:
-    """Deliver a reply through the host waiter or the portable API stub.
+    """通过宿主会话等待器或兼容桩投递回复。
 
     Args:
-        module: Plugin module.
-        text: Reply text.
-        sender: Sender identity.
-        origin: Conversation identity.
+        module: 被测试的插件模块。
+        text: 要投递的回复文本。
+        sender: 回复发送者的标识。
+        origin: 回复所在的会话标识。
 
     Returns:
-        Whether the reply matched a registered selection session.
+        无；断言结果写入测试统计。
     """
     waiter = sys.modules["astrbot.core.utils.session_waiter"]
     event = AstrMessageEvent(text)
@@ -117,10 +120,10 @@ async def deliver(
 
 
 async def protocol_and_transport() -> None:
-    """Verify byte preservation, parsing, and account retries.
+    """验证原始字节、协议解析和账号重试。
 
     Returns:
-        None. Records assertions.
+        无；断言结果写入测试统计。
     """
     check(
         "中文搜索请求符合已验证字节向量",
@@ -242,10 +245,10 @@ async def protocol_and_transport() -> None:
 
 
 async def resolution_and_migration() -> None:
-    """Verify lookup order, successful persistence, modes, and migration.
+    """验证名称优先级、角色保存、模式筛选和数据迁移。
 
     Returns:
-        None. Records assertions.
+        无；断言结果写入测试统计。
     """
     with tempfile.TemporaryDirectory() as tmp:
         db = AsyncSQLiteDB(Path(tmp) / "names.db")
@@ -397,10 +400,10 @@ async def resolution_and_migration() -> None:
 
 
 async def selection_and_web() -> None:
-    """Verify selections through the host API and immutable web fields.
+    """验证宿主多轮选择以及页面只读字段。
 
     Returns:
-        None. Records assertions.
+        无；断言结果写入测试统计。
     """
     module = importlib.import_module("astrbot_plugin_gok.main")
     import test_plugin
@@ -546,10 +549,10 @@ async def selection_and_web() -> None:
 
 
 async def main() -> int:
-    """Run the offline extension suite.
+    """运行离线测试套件并返回退出状态。
 
     Returns:
-        Nonzero when any assertion fails.
+        测试通过为 0，否则为非零退出状态。
     """
     await protocol_and_transport()
     await resolution_and_migration()

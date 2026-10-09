@@ -1,7 +1,7 @@
 name: astrbot_plugin_gok
 display_name: 王者荣耀数据查询工具
 desc: 微信或 QQ 扫码登录后直连王者营地，查询战绩、游戏状态与对局回放；支持角色别名、AI 分析持久缓存、上下线和最新战绩订阅推送。
-version: v2.5.2
+version: v2.5.3
 author: 飞翔大野猪
 repo: https://github.com/qsc20001102/astrbot_plugin_gok
 astrbot_version: ">=4.24.0"

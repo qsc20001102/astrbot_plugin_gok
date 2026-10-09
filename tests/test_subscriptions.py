@@ -77,7 +77,7 @@ class Subscriptions(unittest.IsolatedAsyncioTestCase):
         await self.sub.poll("battle")
         self.context.send_message.assert_awaited_once()
         text = self.context.send_message.await_args.args[1].parts[0].removeprefix("text:")
-        self.assertRegex(text, r"^【战绩推送】\n示例玩家-排位赛-2026-10-08 .*\n胜利\n战绩：8/2/9\n荣誉：")
+        self.assertRegex(text, r"^【战绩推送】\n示例玩家-排位赛-胜利\n时间：2026-10-08 \d{2}:\d{2}\n英雄：妲己\n战绩：8/2/9\n评分：12\.1$")
         self.assertEqual((await self.sub.storage.links("battle", "123456789"))[0]["last_key"], "match-3")
         await self.sub.poll("battle")
         self.context.send_message.assert_awaited_once()
@@ -109,13 +109,16 @@ class Subscriptions(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.sub.storage.links("battle", "123456789"))[0]["last_key"], "match-2")
 
     async def test_incomplete_or_ongoing_match_is_not_sent(self):
+        self.profile["data"]["roleList"][0]["roleName"] = "飞翔小野猪"
         await self.watch()
         self.next_match(1, result=0)
         await self.sub.poll("battle")
         self.context.send_message.assert_not_awaited()
         self.battles[0]["gameresult"] = 2
+        self.battles[0].pop("gradeGame")
         await self.sub.poll("battle")
-        self.assertIn("\n失败\n", self.context.send_message.await_args.args[1].parts[0])
+        text = self.context.send_message.await_args.args[1].parts[0].removeprefix("text:")
+        self.assertRegex(text, r"^【战绩推送】\n飞翔小野猪-排位赛-失败\n时间：2026-10-08 \d{2}:\d{2}\n英雄：妲己\n战绩：8/2/9\n评分：-$")
 
     async def test_transient_empty_or_older_responses_do_not_reset_delivery_cursor(self):
         await self.watch()

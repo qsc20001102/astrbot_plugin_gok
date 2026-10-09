@@ -66,7 +66,7 @@ class PlayerSelectionFilter(SessionFilter):
     PLUGIN_NAME,
     "飞翔大野猪",
     "营地直连查询、AI 分析缓存与上下线/战绩订阅推送（微信或 QQ 扫码登录）",
-    "2.5.2",
+    "2.5.3",
     "https://github.com/qsc20001102/astrbot_plugin_gok",
 )
 class GokPlugin(Star):

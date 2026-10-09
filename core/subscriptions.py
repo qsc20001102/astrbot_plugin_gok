@@ -208,7 +208,7 @@ class SubscriptionService:
                                 continue
                             key = match.game_seq
                             snapshot["match"] = match.to_dict()
-                            message = f"【战绩推送】\n{profile.nickname}-{match.mode_name}-{match.played_at_text}\n{match.result_text}\n战绩：{match.kills}/{match.deaths}/{match.assists}\n荣誉：{match.honor_text or '无'}"
+                            message = f"【战绩推送】\n{profile.nickname}-{match.mode_name}-{match.result_text}\n时间：{match.played_at_text}\n英雄：{match.hero_name}\n战绩：{match.kills}/{match.deaths}/{match.assists}\n评分：{match.score_text}"
                         elif matches:
                             # An ongoing or incomplete record cannot replace a completed cursor.
                             await self.storage.db.execute(

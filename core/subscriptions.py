@@ -161,11 +161,11 @@ class SubscriptionService:
                             else None
                         )
                         if key is not None:
-                            action = "已离线" if key == "offline" else "已上线"
+                            action = "离线" if key == "offline" else "上线"
                             observed_at = datetime.now(
                                 ZoneInfo("Asia/Shanghai")
                             ).strftime("%Y-%m-%d %H:%M:%S")
-                            message = f"{profile.nickname}-{action}\n时间：{observed_at}\n当前段位：{snapshot['rank']}"
+                            message = f"【{action}推送】\n游戏昵称：{profile.nickname}\n时间：{observed_at}\n{action}段位：{snapshot['rank']}"
                         await self.storage.observe(
                             kind,
                             camp_id,
@@ -176,8 +176,6 @@ class SubscriptionService:
                     else:
                         if not await self.storage.links(kind, camp_id):
                             continue
-                        if profile.hide_match:
-                            raise ValueError("该玩家已隐藏战绩")
                         result = await self.service.api.fetch_battles(
                             camp_id, max_pages=1, max_matches=20
                         )
@@ -210,7 +208,7 @@ class SubscriptionService:
                                 continue
                             key = match.game_seq
                             snapshot["match"] = match.to_dict()
-                            message = f"{profile.nickname}-{match.mode_name}-{match.played_at_text}\n{match.result_text}\n战绩：{match.kills}/{match.deaths}/{match.assists}\n荣誉：{match.honor_text or '无'}"
+                            message = f"【战绩推送】\n{profile.nickname}-{match.mode_name}-{match.played_at_text}\n{match.result_text}\n战绩：{match.kills}/{match.deaths}/{match.assists}\n荣誉：{match.honor_text or '无'}"
                         elif matches:
                             # An ongoing or incomplete record cannot replace a completed cursor.
                             await self.storage.db.execute(
@@ -224,7 +222,7 @@ class SubscriptionService:
                                     "UPDATE subscription_targets SET last_poll_at=?,error=? WHERE kind=? AND camp_id=?",
                                     (
                                         time.time(),
-                                        "本次未返回战绩，保留上次记录",
+                                        "未查到营地战绩，可能隐藏或暂无记录；后续继续轮询，保留上次记录",
                                         kind,
                                         camp_id,
                                     ),
@@ -232,7 +230,14 @@ class SubscriptionService:
                                 continue
                             key = ""
                         await self.storage.observe(
-                            kind, camp_id, snapshot, key, latest_at
+                            kind,
+                            camp_id,
+                            snapshot,
+                            key,
+                            latest_at,
+                            error="未查到营地战绩，可能隐藏或暂无记录；后续继续轮询"
+                            if not matches
+                            else "",
                         )
                     if key is not None:
                         await self._deliver(kind, camp_id, key, message)

@@ -44,7 +44,7 @@ class PlayerProfile:
     peak_score: int = 0
     mvp_count: int = 0
     gold_count: int = 0
-    # 营地 `hideMatch=1` 表示该玩家隐藏了战绩；此时战绩接口返回空列表而非报错
+    # In-game privacy flag; Camp battle visibility requires an actual list query.
     hide_match: bool = False
     bg_img: str = ""
     game_bg_img: str = ""
@@ -166,7 +166,7 @@ def parse_profile(payload: dict[str, Any], camp_id: str = "") -> PlayerProfile:
     nickname = strip_control_chars(
         _first_str(role, "roleName", "nickname") or f"营地{camp_id}"
     )
-    # hideMatch=1：该角色隐藏了战绩，战绩接口会返回空列表
+    # Preserve the privacy hint without inferring Camp battle visibility from it.
     hide_match = bool(_as_int(role.get("hideMatch"), 0)) or bool(
         _as_int(data.get("hideMatch"), 0)
     )

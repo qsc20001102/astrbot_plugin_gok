@@ -77,7 +77,7 @@ class Subscriptions(unittest.IsolatedAsyncioTestCase):
         await self.sub.poll("battle")
         self.context.send_message.assert_awaited_once()
         text = self.context.send_message.await_args.args[1].parts[0].removeprefix("text:")
-        self.assertRegex(text, r"^示例玩家-排位赛-2026-10-08 .*\n胜利\n战绩：8/2/9\n荣誉：")
+        self.assertRegex(text, r"^【战绩推送】\n示例玩家-排位赛-2026-10-08 .*\n胜利\n战绩：8/2/9\n荣誉：")
         self.assertEqual((await self.sub.storage.links("battle", "123456789"))[0]["last_key"], "match-3")
         await self.sub.poll("battle")
         self.context.send_message.assert_awaited_once()
@@ -137,6 +137,54 @@ class Subscriptions(unittest.IsolatedAsyncioTestCase):
         await self.sub.poll("battle")
         self.context.send_message.assert_awaited_once()
 
+    async def test_role_privacy_flag_does_not_block_visible_matches_or_new_pushes(self):
+        self.profile["data"]["roleList"][0]["hideMatch"] = 1
+        await self.watch()
+        self.api.fetch_battles.assert_awaited_once_with("123456789", max_pages=1, max_matches=20)
+        self.next_match(1)
+        await self.sub.poll("battle")
+        self.context.send_message.assert_awaited_once()
+        row = (await self.sub.storage.targets("battle"))[0]
+        self.assertEqual(row["latest_key"], "match-1")
+        self.assertFalse(row["error"])
+
+    async def test_top_level_privacy_flag_does_not_skip_battle_lookup(self):
+        self.profile["data"]["hideMatch"] = 1
+        await self.watch()
+        self.next_match(1)
+        await self.sub.poll("battle")
+        self.assertEqual(self.api.fetch_battles.await_count, 2)
+        self.context.send_message.assert_awaited_once()
+
+    async def test_empty_hidden_battles_keep_polling_and_recover_to_latest_only(self):
+        self.profile["data"]["roleList"][0]["hideMatch"] = 1
+        await self.watch()
+        self.battles = []
+        for _ in range(2):
+            await self.sub.poll("battle")
+        self.assertEqual(self.api.fetch_battles.await_count, 3)
+        self.context.send_message.assert_not_awaited()
+        row = (await self.sub.storage.targets("battle"))[0]
+        self.assertIn("未查到营地战绩", row["error"])
+        self.assertEqual(row["session_count"], 1)
+        self.assertEqual((await self.sub.storage.links("battle", "123456789"))[0]["last_key"], BATTLES[0]["gameSeq"])
+        for number in (1, 2, 3):
+            self.next_match(number)
+        await self.sub.poll("battle")
+        self.context.send_message.assert_awaited_once()
+        self.assertEqual((await self.sub.storage.links("battle", "123456789"))[0]["last_key"], "match-3")
+        self.assertFalse((await self.sub.storage.targets("battle"))[0]["error"])
+
+    async def test_first_empty_lookup_marks_missing_data_and_still_checks_future_matches(self):
+        self.profile["data"]["roleList"][0]["hideMatch"] = 1
+        self.battles = []
+        await self.watch()
+        row = (await self.sub.storage.targets("battle"))[0]
+        self.assertIn("未查到营地战绩", row["error"])
+        self.next_match(1)
+        await self.sub.poll("battle")
+        self.context.send_message.assert_awaited_once()
+
     async def test_status_only_pushes_zero_to_one_or_two_and_reverse(self):
         await self.watch("status")
         role = self.profile["data"]["roleList"][0]
@@ -145,9 +193,10 @@ class Subscriptions(unittest.IsolatedAsyncioTestCase):
             await self.sub.poll("status")
         texts = [call.args[1].parts[0].removeprefix("text:") for call in self.context.send_message.await_args_list]
         self.assertEqual(len(texts), 4)
-        self.assertTrue(texts[0].startswith("示例玩家-已上线\n时间："))
-        self.assertTrue(texts[1].startswith("示例玩家-已离线\n时间："))
-        self.assertRegex(texts[0], r"时间：\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\n当前段位：")
+        self.assertTrue(texts[0].startswith("【上线推送】\n游戏昵称：示例玩家\n时间："))
+        self.assertTrue(texts[1].startswith("【离线推送】\n游戏昵称：示例玩家\n时间："))
+        self.assertRegex(texts[0], r"时间：\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\n上线段位：")
+        self.assertRegex(texts[1], r"时间：\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\n离线段位：")
 
     async def test_unknown_status_or_network_error_never_becomes_offline(self):
         self.profile["data"]["roleList"][0]["gameOnline"] = 1
@@ -160,7 +209,7 @@ class Subscriptions(unittest.IsolatedAsyncioTestCase):
         self.api.get_profile.side_effect = lambda *args: self.profile
         self.profile["data"]["roleList"][0]["gameOnline"] = 0
         await self.sub.poll("status")
-        self.assertIn("已离线", self.context.send_message.await_args.args[1].parts[0])
+        self.assertIn("【离线推送】", self.context.send_message.await_args.args[1].parts[0])
 
     async def test_failed_status_is_not_replayed_during_one_two_changes(self):
         await self.watch("status")

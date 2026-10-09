@@ -220,7 +220,7 @@ class GokService:
             mode = {1: "ranked", 4: "peak"}[option]
             matches = [match for match in matches if match.mode == mode]
         if not matches:
-            # 营地对隐藏战绩不返回错误码，而是在角色资料里给出 hideMatch=1
+            # Check for missing records only after fetching the Camp battle list.
             if profile.hide_match:
                 return self.err(
                     f"{profile.nickname} 已在王者营地隐藏了战绩，无法查询。\n"

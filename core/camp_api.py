@@ -63,7 +63,7 @@ class CampDataApi:
 
     # ------------------------------------------------------------------ 玩家资料
     async def get_profile(self, camp_id: str) -> dict[str, Any]:
-        """查询玩家资料（含段位、角色列表、头像）。"""
+        """查询玩家资料（含段位、角色列表、头像和游戏状态）。"""
         return await self.client.request(
             "/game/koh/profile",
             {

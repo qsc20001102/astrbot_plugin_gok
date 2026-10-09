@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -26,6 +27,8 @@ from core.analysis_data import (  # noqa: E402
 from core.models_detail import parse_battle_detail  # noqa: E402
 from core.models_replay import parse_battle_replay  # noqa: E402
 from core.service import GokService  # noqa: E402
+from core.sqlite import AsyncSQLiteDB  # noqa: E402
+from core.storage import GokStorage  # noqa: E402
 from core.webui import WebUIService  # noqa: E402
 from fixtures_expansion import detail_payload, replay_payload  # noqa: E402
 
@@ -165,17 +168,25 @@ class AnalysisData(unittest.TestCase):
             config["analysis"]["items"]["prompt"]["default"], DEFAULT_ANALYSIS_PROMPT
         )
         self.assertEqual(
-            set(config["analysis"]["items"]), {"prompt", "select_provider"}
+            set(config["analysis"]["items"]),
+            {"prompt", "select_provider", "cache_retention_days"},
         )
+        self.assertEqual(config["analysis"]["items"]["cache_retention_days"]["default"], 150)
         self.assertNotIn("comment", config)
 
 
 class AnalysisCalls(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.detail, self.replay = models()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.db = AsyncSQLiteDB(Path(self.temp_dir.name) / "gok.db")
+        await self.db.connect()
+        self.storage = GokStorage(self.db)
+        await self.storage.initialize()
         self.service = SimpleNamespace(
             ok=GokService.ok,
             err=GokService.err,
+            storage=self.storage,
             battle_detail=AsyncMock(
                 return_value=GokService.ok(self.detail, "detail.html")
             ),
@@ -189,6 +200,8 @@ class AnalysisCalls(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         await self.analysis.close()
+        await self.db.close()
+        self.temp_dir.cleanup()
 
     async def test_native_call_separates_fixed_system_and_configurable_task(self):
         result = await self.analysis.analyze("123456789", 2, game_seq="100001")
@@ -222,13 +235,14 @@ class AnalysisCalls(unittest.IsolatedAsyncioTestCase):
             ANALYSIS_DATA_PROMPT,
         )
 
-    async def test_missing_model_does_not_query_camp_or_call_model(self):
+    async def test_missing_model_only_resolves_command_battle_and_does_not_call_model(self):
         self.config["analysis"]["select_provider"] = ""
         result = await self.analysis.analyze("123456789")
         self.assertIn("选择分析模型", result["msg"])
-        self.service.battle_detail.assert_not_awaited()
+        self.service.battle_detail.assert_awaited_once()
+        self.service.battle_replay.assert_not_awaited()
         self.context.llm_generate.assert_not_awaited()
-        self.assertEqual(self.analysis.start("123456789")["code"], 400)
+        self.assertEqual((await self.analysis.start("123456789"))["code"], 400)
 
     async def test_detail_or_replay_errors_prevent_model_call(self):
         self.service.battle_detail.return_value = GokService.err("对局不存在")
@@ -264,6 +278,7 @@ class AnalysisCalls(unittest.IsolatedAsyncioTestCase):
         result = await self.analysis.analyze("123456789")
         self.assertEqual(result["data"], ANSWER)
         self.assertNotIn("所用英雄", result["data"])
+        await self.analysis.clear_cache("100001")
         self.context.llm_generate.return_value.completion_text = ANSWER.split("\n", 1)[
             1
         ]
@@ -304,16 +319,18 @@ class AnalysisCalls(unittest.IsolatedAsyncioTestCase):
 
     async def test_jobs_progress_done_expiration_and_status_are_bounded(self):
         gate = asyncio.Event()
+        entered = asyncio.Event()
 
         async def delayed(**kwargs):
+            entered.set()
             await gate.wait()
             return SimpleNamespace(completion_text=ANSWER)
 
         self.context.llm_generate.side_effect = delayed
-        started = self.analysis.start("123456789", 2, game_seq="100001")
+        started = await self.analysis.start("123456789", 2, game_seq="100001")
         task_id = started["data"]["task_id"]
         self.assertEqual(self.analysis.status(task_id)["data"]["status"], "pending")
-        await asyncio.sleep(0)
+        await asyncio.wait_for(entered.wait(), 1)
         state = self.analysis.status(task_id)["data"]
         self.assertEqual(state["status"], "running")
         self.assertIn("分析", state["message"])
@@ -326,7 +343,7 @@ class AnalysisCalls(unittest.IsolatedAsyncioTestCase):
 
     async def test_job_failures_return_error_status(self):
         self.service.battle_detail.return_value = GokService.err("对局不存在")
-        task_id = self.analysis.start("123456789")["data"]["task_id"]
+        task_id = (await self.analysis.start("123456789"))["data"]["task_id"]
         await asyncio.gather(*tuple(self.analysis._tasks))
         self.assertEqual(self.analysis.status(task_id)["data"]["status"], "error")
 
@@ -338,8 +355,8 @@ class AnalysisCalls(unittest.IsolatedAsyncioTestCase):
 
         self.context.llm_generate.side_effect = delayed
         for _ in range(3):
-            self.assertEqual(self.analysis.start("123456789")["code"], 200)
-        self.assertEqual(self.analysis.start("123456789")["code"], 400)
+            self.assertEqual((await self.analysis.start("123456789"))["code"], 200)
+        self.assertEqual((await self.analysis.start("123456789"))["code"], 400)
         tasks = tuple(self.analysis._tasks)
         await asyncio.sleep(0)
         await self.analysis.close()
@@ -394,6 +411,186 @@ class AnalysisCalls(unittest.IsolatedAsyncioTestCase):
             )["code"],
             400,
         )
+
+    async def test_command_result_is_saved_and_web_reuses_it_without_upstream(self):
+        self.assertEqual((await self.analysis.analyze("123456789", 2))["data"], ANSWER)
+        saved = await self.analysis.cached("100001")
+        self.assertEqual(saved["text"], ANSWER)
+        self.config["analysis"]["select_provider"] = ""
+        self.service.battle_detail.reset_mock()
+        result = await self.analysis.start("other-player", game_seq="100001")
+        self.assertEqual(result["data"], {"status": "done", "text": ANSWER})
+        self.assertEqual((await self.analysis.analyze("other-player", game_seq="100001"))["data"], ANSWER)
+        self.service.battle_detail.assert_not_awaited()
+        self.context.llm_generate.assert_awaited_once()
+        self.assertEqual((await self.analysis.cached("100001"))["created_at"], saved["created_at"])
+
+    async def test_web_result_is_reused_by_command_and_uses_match_id_not_player_or_index(self):
+        started = await self.analysis.start("123456789", 2, game_seq="100001")
+        await asyncio.gather(*tuple(self.analysis._tasks))
+        self.assertEqual(self.analysis.status(started["data"]["task_id"])["data"]["text"], ANSWER)
+        self.config["analysis"]["select_provider"] = ""
+        self.assertEqual((await self.analysis.analyze("another-player", 1))["data"], ANSWER)
+        self.context.llm_generate.assert_awaited_once()
+        self.service.battle_replay.assert_awaited_once()
+        self.detail["match"]["game_seq"] = "100002"
+        result = await self.analysis.analyze("another-player", 1)
+        self.assertIn("选择分析模型", result["msg"])
+        self.assertIsNone(await self.analysis.cached("100002"))
+
+    async def test_persistent_results_survive_database_reopen_and_service_restart(self):
+        await self.analysis.analyze("123456789")
+        await self.analysis.close()
+        await self.db.close()
+        await self.db.connect()
+        self.service.storage = GokStorage(self.db)
+        await self.service.storage.initialize()
+        self.analysis = BattleAnalysisService(self.service, self.context, self.config)
+        await self.analysis.initialize()
+        self.service.battle_detail.reset_mock()
+        self.config["analysis"]["select_provider"] = ""
+        self.assertEqual((await self.analysis.analyze("123456789", game_seq="100001"))["data"], ANSWER)
+        self.service.battle_detail.assert_not_awaited()
+        self.context.llm_generate.assert_awaited_once()
+
+    async def test_expired_results_are_deleted_and_regenerated_with_current_retention(self):
+        await self.storage.save_analysis("100001", "expired")
+        await self.storage.save_analysis("other", "also expired")
+        await self.db.execute("UPDATE battle_analyses SET created_at=?", (time.time() - 151 * 86400,))
+        self.assertEqual((await self.analysis.analyze("123456789", game_seq="100001"))["data"], ANSWER)
+        self.assertIsNone(await self.analysis.cached("other"))
+        self.context.llm_generate.assert_awaited_once()
+        await self.db.execute("UPDATE battle_analyses SET created_at=?", (time.time() - 8 * 86400,))
+        self.assertIsNotNone(await self.analysis.cached("100001"))
+        self.config["analysis"]["cache_retention_days"] = 7
+        self.assertIsNone(await self.analysis.cached("100001"))
+        self.assertEqual(await self.db.fetch_value("SELECT COUNT(*) FROM battle_analyses"), 0)
+
+    async def test_retention_boundary_and_invalid_settings(self):
+        self.config["analysis"]["cache_retention_days"] = 365
+        self.assertEqual(self.analysis.retention_days, 365)
+        for value in (None, "bad", 0, -1, float("inf")):
+            self.config["analysis"]["cache_retention_days"] = value
+            self.assertEqual(self.analysis.retention_days, 150)
+        await self.db.execute("INSERT INTO battle_analyses VALUES (?,?,?)", ("boundary", ANSWER, 0))
+        with patch("core.storage.time.time", return_value=150 * 86400):
+            self.assertIsNone(await self.analysis.cached("boundary"))
+
+    async def test_startup_and_idle_cleanup_remove_expired_rows(self):
+        await self.storage.save_analysis("startup", ANSWER)
+        await self.db.execute("UPDATE battle_analyses SET created_at=0")
+        with patch("core.analysis.CACHE_CLEANUP_INTERVAL_SECONDS", 0.01):
+            await self.analysis.initialize()
+            self.assertEqual(await self.db.fetch_value("SELECT COUNT(*) FROM battle_analyses"), 0)
+            await self.db.execute("INSERT INTO battle_analyses VALUES (?,?,?)", ("idle", ANSWER, 0))
+            for _ in range(30):
+                if await self.db.fetch_value("SELECT COUNT(*) FROM battle_analyses") == 0:
+                    break
+                await asyncio.sleep(0.01)
+            self.assertEqual(await self.db.fetch_value("SELECT COUNT(*) FROM battle_analyses"), 0)
+        cleanup = self.analysis._cleanup_task
+        await self.analysis.close()
+        self.assertTrue(cleanup.cancelled())
+
+    async def test_concurrent_command_and_web_call_generate_one_result(self):
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        async def delayed(**kwargs):
+            entered.set()
+            await release.wait()
+            return SimpleNamespace(completion_text=ANSWER)
+
+        self.context.llm_generate.side_effect = delayed
+        command = asyncio.create_task(self.analysis.analyze("123456789"))
+        await asyncio.wait_for(entered.wait(), 1)
+        started = await self.analysis.start("another-player", game_seq="100001")
+        release.set()
+        self.assertEqual((await command)["data"], ANSWER)
+        await asyncio.gather(*tuple(self.analysis._tasks))
+        self.assertEqual(self.analysis.status(started["data"]["task_id"])["data"]["text"], ANSWER)
+        self.context.llm_generate.assert_awaited_once()
+        self.service.battle_replay.assert_awaited_once()
+        self.assertFalse(self.analysis._match_locks)
+
+    async def test_clear_removes_only_selected_result_and_stale_job_then_allows_regeneration(self):
+        started = await self.analysis.start("123456789", game_seq="100001")
+        await asyncio.gather(*tuple(self.analysis._tasks))
+        await self.storage.save_analysis("other", "other analysis")
+        self.assertTrue(await self.analysis.clear_cache("100001"))
+        self.assertFalse(await self.analysis.clear_cache("100001"))
+        self.assertIsNone(await self.analysis.cached("100001"))
+        self.assertEqual((await self.analysis.cached("other"))["text"], "other analysis")
+        self.assertEqual(self.analysis.status(started["data"]["task_id"])["code"], 400)
+        self.assertEqual((await self.analysis.analyze("123456789"))["data"], ANSWER)
+        self.assertEqual(self.context.llm_generate.await_count, 2)
+
+    async def test_clear_waits_for_running_generation_and_does_not_allow_cache_to_reappear(self):
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        async def delayed(**kwargs):
+            entered.set()
+            await release.wait()
+            return SimpleNamespace(completion_text=ANSWER)
+
+        self.context.llm_generate.side_effect = delayed
+        command = asyncio.create_task(self.analysis.analyze("123456789"))
+        await asyncio.wait_for(entered.wait(), 1)
+        clear = asyncio.create_task(self.analysis.clear_cache("100001"))
+        await asyncio.sleep(0)
+        self.assertFalse(clear.done())
+        release.set()
+        await command
+        self.assertTrue(await clear)
+        self.assertIsNone(await self.analysis.cached("100001"))
+        self.assertFalse(self.analysis._match_locks)
+
+    async def test_cancelled_waiter_releases_match_lock_references(self):
+        async with self.analysis._match_lock("100001"):
+            waiter = asyncio.create_task(self.analysis.clear_cache("100001"))
+            await asyncio.sleep(0)
+            waiter.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await waiter
+            self.assertEqual(self.analysis._match_locks["100001"][1], 1)
+        self.assertFalse(self.analysis._match_locks)
+
+    async def test_failed_or_mismatched_analysis_is_not_persisted(self):
+        self.context.llm_generate.return_value.completion_text = "bad format"
+        self.assertEqual((await self.analysis.analyze("123456789"))["code"], 400)
+        self.assertIsNone(await self.analysis.cached("100001"))
+        self.context.llm_generate.reset_mock()
+        result = await self.analysis.analyze("123456789", game_seq="other")
+        self.assertIn("标识", result["msg"])
+        self.context.llm_generate.assert_not_awaited()
+        self.assertIsNone(await self.analysis.cached("other"))
+
+    async def test_database_write_failure_does_not_report_saved_success(self):
+        with patch.object(self.storage, "save_analysis", AsyncMock(side_effect=OSError("private-path"))):
+            result = await self.analysis.analyze("123456789")
+        self.assertEqual(result["code"], 400)
+        self.assertNotIn("private-path", result["msg"])
+        self.assertIsNone(await self.analysis.cached("100001"))
+
+    async def test_web_cache_and_clear_routes_validate_ids_and_never_call_model(self):
+        web = WebUIService(self.service, self.analysis)
+        request_stub.query = type(request_stub.query)({})
+        self.assertEqual((await web.analysis_cache()).status_code, 400)
+        request_stub.set_json({})
+        self.assertEqual((await web.analysis_clear()).status_code, 400)
+        request_stub.query = type(request_stub.query)({"game_seq": "100001"})
+        data = json.loads((await web.analysis_cache()).body)["data"]
+        self.assertEqual(data, {"available": False, "text": "", "created_at": None})
+        await self.storage.save_analysis("100001", "<script>literal</script>")
+        data = json.loads((await web.analysis_cache()).body)["data"]
+        self.assertTrue(data["available"])
+        self.assertEqual(data["text"], "<script>literal</script>")
+        request_stub.set_json({"game_seq": "100001"})
+        self.assertTrue(json.loads((await web.analysis_clear()).body)["data"]["deleted"])
+        self.context.llm_generate.assert_not_awaited()
+        self.service.battle_detail.assert_not_awaited()
+        unavailable = WebUIService(self.service)
+        self.assertEqual((await unavailable.analysis_cache()).status_code, 503)
+        self.assertEqual((await unavailable.analysis_clear()).status_code, 503)
 
 
 if __name__ == "__main__":

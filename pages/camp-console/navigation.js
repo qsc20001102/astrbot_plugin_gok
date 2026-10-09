@@ -1,6 +1,6 @@
 /** 基础导航独立于功能脚本和接口初始化，功能加载失败时仍可切换页面。 */
 (() => {
-  const pages = new Set(["login", "query", "aliases"]);
+  const pages = new Set(["login", "query", "aliases", "subscriptions"]);
   function go(page) {
     if (!pages.has(page)) return;
     document.querySelectorAll("[data-page]").forEach((button) => {
@@ -12,13 +12,7 @@
     document.querySelectorAll(".page-panel").forEach((panel) => {
       panel.hidden = panel.id !== `panel-${page}`;
     });
-    document
-      .querySelector(".main-content")
-      ?.classList.toggle(
-        "detail-mode",
-        page === "query" &&
-          Boolean(document.querySelector("#query-result .detail-tabs")),
-      );
+    window.scrollTo(0, 0);
     // 先切换页面，再通知播放组件；组件清理错误不应阻断导航。
     document.dispatchEvent(
       new CustomEvent("gok:pagechange", { detail: { page } }),

@@ -1,4 +1,4 @@
-"""地图回顾的 AI 分析路由，生成过程在后台运行。"""
+"""单局详情的 AI 分析路由，生成过程在后台运行。"""
 
 from __future__ import annotations
 
@@ -29,12 +29,57 @@ class WebAnalysisRoutes(WebRoutes):
             return error_response(
                 "请提供玩家、所选对局标识和从 1 开始的序号", status_code=400
             )
-        result = self.analysis.start(keyword, index, game_seq=game_seq)
+        result = await self.analysis.start(keyword, index, game_seq=game_seq)
         if result.get("code") != 200:
             return error_response(
                 str(result.get("msg") or "无法启动分析"), status_code=400
             )
         return json_response({"status": "ok", "data": result["data"]})
+
+    async def analysis_cache(self):
+        """Read one battle's persistent cache without starting an analysis.
+
+        Returns:
+            Cache availability, saved text and creation time.
+        """
+        if self.analysis is None:
+            return error_response(
+                "AI 对局分析服务尚未就绪，请重新加载插件", status_code=503
+            )
+        game_seq = str(request.query.get("game_seq", "") or "").strip()
+        if not game_seq:
+            return error_response("请提供所选对局标识", status_code=400)
+        cached = await self.analysis.cached(game_seq)
+        return json_response(
+            {
+                "status": "ok",
+                "data": {
+                    "available": cached is not None,
+                    "text": cached["text"] if cached else "",
+                    "created_at": cached["created_at"] if cached else None,
+                },
+            }
+        )
+
+    async def analysis_clear(self):
+        """Delete only the selected battle's persistent analysis.
+
+        Returns:
+            Whether a stored result was removed, or a validation error.
+        """
+        if self.analysis is None:
+            return error_response(
+                "AI 对局分析服务尚未就绪，请重新加载插件", status_code=503
+            )
+        try:
+            payload = await self._payload()
+        except ValueError as exc:
+            return error_response(str(exc), status_code=400)
+        game_seq = self._str_param(payload, "game_seq")
+        if not game_seq:
+            return error_response("请提供所选对局标识", status_code=400)
+        deleted = await self.analysis.clear_cache(game_seq)
+        return json_response({"status": "ok", "data": {"deleted": deleted}})
 
     async def analysis_status(self):
         """读取进度与文字结果，不向页面暴露固定提示词或模型输入。

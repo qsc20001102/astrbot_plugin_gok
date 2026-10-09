@@ -5,6 +5,7 @@ import { initAccounts } from "./features/accounts.js";
 import { initAliases } from "./features/aliases.js";
 import { initLogin } from "./features/login.js";
 import { initQuery } from "./features/query.js";
+import { initSubscriptions } from "./features/subscriptions.js";
 
 async function main() {
   hydrateIcons();
@@ -14,6 +15,7 @@ async function main() {
   );
   const login = initLogin(() => accounts.reload());
   const query = initQuery(() => accounts.reload());
+  initSubscriptions();
   document.addEventListener("gok:pagechange", (event) => {
     if (event.detail.page !== "query") query.pauseReplay();
   });

@@ -7,6 +7,7 @@ import secrets
 import time
 from typing import Any
 
+# Public WeChat client AppID for Camp QR login, not an AppSecret.
 APPID_WX = "wxf4b1e8a3e9aaf978"
 
 CAMP_BASE_URL = "https://ssl.kohsocialapp.qq.com:10001"

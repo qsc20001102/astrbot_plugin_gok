@@ -25,7 +25,7 @@ export function replayEventsAtTime(events, seconds, pinnedId = "") {
 export function renderReplay(root, data) {
   if (!data.available) {
     root.innerHTML = html`<div class="replay-state">
-      <h3>暂无地图回顾</h3>
+      <h3>暂无对局回放</h3>
       <p>${e(data.message || "这场对局的回顾数据暂未返回")}</p>
     </div>`;
     return () => {};
@@ -93,7 +93,7 @@ export function renderReplay(root, data) {
           id="replay-play"
           class="replay-play"
           type="button"
-          aria-label="播放回顾"
+          aria-label="播放回放"
         >
           ${icon("play")}</button
         ><span id="replay-time" class="replay-time"
@@ -106,7 +106,7 @@ export function renderReplay(root, data) {
           max="${duration}"
           value="0"
           step="1"
-          aria-label="对局回顾时间"
+          aria-label="对局回放时间"
         /><select id="replay-speed" class="replay-speed" aria-label="播放速度">
           <option value="1">1×</option>
           <option value="2">2×</option>

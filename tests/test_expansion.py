@@ -22,7 +22,7 @@ from core.camp_auth import CampAccount  # noqa: E402
 from core.camp_login import CampLoginManager  # noqa: E402
 from core.http import HttpClient, HttpResponse  # noqa: E402
 from core.login_qq import QQLoginFlow, capture_auth_code, exchange_qq_code  # noqa: E402
-from core.models import parse_battle_row  # noqa: E402
+from core.models import parse_battle_row, parse_profile  # noqa: E402
 from core.models_detail import parse_battle_detail  # noqa: E402
 from core.models_replay import map_position, parse_battle_replay  # noqa: E402
 from core.service import GokService  # noqa: E402
@@ -37,6 +37,48 @@ from fixtures_expansion import (  # noqa: E402
 
 
 class DisplayModels(unittest.TestCase):
+    def test_profile_game_status_preserves_zero_and_known_codes(self):
+        for raw, label in (
+            (0, "离线"),
+            (1, "在线"),
+            (2, "游戏中"),
+            ("0", "离线"),
+            ("1", "在线"),
+            ("2", "游戏中"),
+        ):
+            with self.subTest(raw=raw):
+                data = parse_profile(
+                    {"roleList": [{"roleId": "1", "gameOnline": raw}]}
+                ).to_dict()
+                self.assertEqual(data["game_online"], int(raw))
+                self.assertEqual(data["game_status"], label)
+
+    def test_profile_missing_or_invalid_game_status_is_unknown(self):
+        for role in (
+            {"roleId": "1"},
+            *(
+                {"roleId": "1", "gameOnline": value}
+                for value in (None, "", 3, -1, "bad", True, False, 0.5)
+            ),
+        ):
+            with self.subTest(role=role):
+                data = parse_profile({"roleList": [role]}).to_dict()
+                self.assertIsNone(data["game_online"])
+                self.assertEqual(data["game_status"], "未知")
+
+    def test_profile_game_status_uses_target_role(self):
+        data = parse_profile(
+            {
+                "targetRoleId": "2",
+                "roleList": [
+                    {"roleId": "1", "gameOnline": 0},
+                    {"roleId": 2, "gameOnline": 2},
+                ],
+            }
+        ).to_dict()
+        self.assertEqual(data["role_id"], "2")
+        self.assertEqual(data["game_status"], "游戏中")
+
     def test_total_damage_taken_and_tower_count_preserve_zero_and_missing(self):
         payload = detail_payload()
         stats = payload["data"]["blueRoles"][0]["battleStats"]

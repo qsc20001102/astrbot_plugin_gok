@@ -12,12 +12,18 @@ from .webui_aliases import WebAliasRoutes
 from .webui_analysis import WebAnalysisRoutes
 from .webui_login import WebLoginRoutes
 from .webui_queries import WebQueryRoutes
+from .webui_subscriptions import WebSubscriptionRoutes
 
 __all__ = ["WebUIService"]
 
 
 class WebUIService(
-    WebLoginRoutes, WebAccountRoutes, WebQueryRoutes, WebAliasRoutes, WebAnalysisRoutes
+    WebLoginRoutes,
+    WebAccountRoutes,
+    WebQueryRoutes,
+    WebAliasRoutes,
+    WebAnalysisRoutes,
+    WebSubscriptionRoutes,
 ):
     """保持宿主注册和既有调用入口稳定的页面 API。"""
 
@@ -34,6 +40,18 @@ class WebUIService(
             ("query", self.query_player, ["GET"], "按营地ID或别名查询玩家"),
             ("analysis/start", self.analysis_start, ["POST"], "启动所选对局的 AI 分析"),
             (
+                "analysis/cache",
+                self.analysis_cache,
+                ["GET"],
+                "读取所选对局的 AI 分析缓存",
+            ),
+            (
+                "analysis/clear",
+                self.analysis_clear,
+                ["POST"],
+                "清除所选对局的 AI 分析缓存",
+            ),
+            (
                 "analysis/status",
                 self.analysis_status,
                 ["GET"],
@@ -42,6 +60,18 @@ class WebUIService(
             ("aliases/list", self.aliases_list, ["GET"], "列出角色别名"),
             ("aliases/update", self.aliases_update, ["POST"], "设置或清除角色别名"),
             ("aliases/delete", self.aliases_delete, ["POST"], "删除角色别名"),
+            (
+                "subscriptions/list",
+                self.subscriptions_list,
+                ["GET"],
+                "读取订阅和会话推送状态",
+            ),
+            (
+                "subscriptions/update",
+                self.subscriptions_update,
+                ["POST"],
+                "管理订阅目标和推送会话",
+            ),
         )
         for path, handler, methods, description in routes:
             context.register_web_api(

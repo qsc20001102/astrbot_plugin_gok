@@ -16,7 +16,7 @@
         <div class="topbar-inner">
           <a class="brand" href="#login" aria-label="王者荣耀数据查询工具首页"
             ><strong>王者荣耀数据查询工具</strong
-            ><span>玩家资料与对局回顾</span></a
+            ><span>玩家资料与对局回放</span></a
           >
           <nav class="navigation" aria-label="功能导航">
             <button
@@ -32,6 +32,9 @@
             </button>
             <button class="nav-item" data-page="aliases" type="button">
               <span data-icon="tag"></span>角色别名
+            </button>
+            <button class="nav-item" data-page="subscriptions" type="button">
+              <span data-icon="bell"></span>订阅系统
             </button>
           </nav>
         </div>
@@ -184,6 +187,120 @@
             在查询成功后自动记录。你可以设置独立别名，留空即可清除。
           </p>
         </section>
+        <section id="panel-subscriptions" class="page-panel" hidden>
+          <header class="page-heading">
+            <div>
+              <h1>订阅系统</h1>
+              <p>订阅玩家动态，选择接收消息的会话</p>
+            </div>
+            <button
+              class="button outline"
+              id="refresh-subscriptions"
+              type="button"
+            >
+              刷新状态
+            </button>
+          </header>
+          <div
+            id="subscription-notice"
+            class="inline-notice"
+            role="alert"
+            hidden
+          ></div>
+          <div class="subscription-grid">
+            <section
+              class="subscription-module"
+              aria-labelledby="status-subscription-title"
+            >
+              <header class="subscription-heading">
+                <div>
+                  <span class="section-eyebrow">ONLINE STATUS</span>
+                  <h2 id="status-subscription-title">订阅状态</h2>
+                </div>
+                <span id="status-running" class="subscription-badge"
+                  >读取中</span
+                >
+              </header>
+              <div id="status-poll-times" class="subscription-times"></div>
+              <form id="add-status-subscription" class="subscription-add">
+                <input
+                  class="input"
+                  name="camp_id"
+                  inputmode="numeric"
+                  maxlength="15"
+                  placeholder="输入营地 ID"
+                  aria-label="状态订阅营地 ID"
+                  required
+                />
+                <button class="button primary small" type="submit">
+                  添加订阅
+                </button>
+              </form>
+              <div
+                id="status-subscription-list"
+                class="subscription-list"
+              ></div>
+            </section>
+            <section
+              class="subscription-module"
+              aria-labelledby="battle-subscription-title"
+            >
+              <header class="subscription-heading">
+                <div>
+                  <span class="section-eyebrow">MATCH RESULTS</span>
+                  <h2 id="battle-subscription-title">订阅战绩</h2>
+                </div>
+                <span id="battle-running" class="subscription-badge"
+                  >读取中</span
+                >
+              </header>
+              <div id="battle-poll-times" class="subscription-times"></div>
+              <form id="add-battle-subscription" class="subscription-add">
+                <input
+                  class="input"
+                  name="camp_id"
+                  inputmode="numeric"
+                  maxlength="15"
+                  placeholder="输入营地 ID"
+                  aria-label="战绩订阅营地 ID"
+                  required
+                />
+                <button class="button primary small" type="submit">
+                  添加订阅
+                </button>
+              </form>
+              <div
+                id="battle-subscription-list"
+                class="subscription-list"
+              ></div>
+            </section>
+          </div>
+          <section
+            class="subscription-module session-module"
+            aria-labelledby="push-session-title"
+          >
+            <header class="subscription-heading">
+              <div>
+                <span class="section-eyebrow">MESSAGE ROUTING</span>
+                <h2 id="push-session-title">会话推送</h2>
+              </div>
+              <button
+                class="button primary small"
+                id="add-push-session"
+                type="button"
+              >
+                添加会话
+              </button>
+            </header>
+            <p class="subscription-hint">
+              每个会话可接收多个状态和战绩订阅。未关联任何会话的订阅会自动暂停轮询。
+            </p>
+            <div id="push-session-list"></div>
+          </section>
+          <p class="page-note">
+            战绩只推送最新已完成的一场，中断恢复后不补推中间缺失内容。首次关联会话时建立基准。
+          </p>
+        </section>
       </main>
     </div>
     <div id="toast" class="toast" role="status" hidden></div>
@@ -232,6 +349,37 @@
             取消</button
           ><button class="button primary" id="alias-edit-save" type="submit">
             保存别名
+          </button>
+        </div>
+      </form>
+    </div>
+    <div
+      id="session-edit-mask"
+      class="modal-mask"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="session-edit-title"
+      hidden
+    >
+      <form id="session-edit-form" class="modal session-edit-modal">
+        <h2 id="session-edit-title">添加推送会话</h2>
+        <label class="field-label" for="push-session-id">会话 ID</label>
+        <input
+          id="push-session-id"
+          class="input"
+          maxlength="512"
+          placeholder="平台实例ID:GroupMessage:群号"
+          required
+        />
+        <p class="subscription-hint">
+          在目标群聊或私聊发送「查看订阅」，复制返回的完整会话 ID。
+        </p>
+        <div id="session-subscription-options" class="session-options"></div>
+        <div class="modal-actions">
+          <button class="button outline" id="cancel-push-session" type="button">
+            取消</button
+          ><button class="button primary" id="save-push-session" type="submit">
+            保存会话
           </button>
         </div>
       </form>

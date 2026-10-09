@@ -7,6 +7,8 @@ import json
 import re
 import secrets
 import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from astrbot.api import logger
@@ -23,10 +25,12 @@ ANALYSIS_TIMEOUT_SECONDS = 180
 JOB_LIFETIME_SECONDS = 900
 MAX_ACTIVE_ANALYSES = 3
 MAX_JOBS = 32
+DEFAULT_CACHE_RETENTION_DAYS = 150
+CACHE_CLEANUP_INTERVAL_SECONDS = 3600
 
 
 class BattleAnalysisService:
-    """只在显式请求时调用模型，后台任务仅暂存进度和分析结果。"""
+    """Share persistent battle results across commands and web requests."""
 
     def __init__(self, service: GokService, context: Any, config: Any) -> None:
         self.service = service
@@ -34,6 +38,100 @@ class BattleAnalysisService:
         self.config = config
         self._tasks: set[asyncio.Task] = set()
         self._jobs: dict[str, dict[str, Any]] = {}
+        self._match_locks: dict[str, tuple[asyncio.Lock, int]] = {}
+        self._cleanup_task: asyncio.Task | None = None
+
+    @property
+    def retention_days(self) -> int:
+        """Return the current positive retention period.
+
+        Returns:
+            Configured days, or 150 for invalid values.
+        """
+        try:
+            value = int(
+                (self.config.get("analysis", {}) or {}).get(
+                    "cache_retention_days", DEFAULT_CACHE_RETENTION_DAYS
+                )
+            )
+            return value if value > 0 else DEFAULT_CACHE_RETENTION_DAYS
+        except (TypeError, ValueError, OverflowError):
+            return DEFAULT_CACHE_RETENTION_DAYS
+
+    async def initialize(self) -> None:
+        """Prune old results at startup and schedule ongoing cleanup.
+
+        Returns:
+            None.
+        """
+        await self.service.storage.prune_analyses(self.retention_days)
+        if self._cleanup_task is None or self._cleanup_task.done():
+            self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+
+    async def _cleanup_loop(self) -> None:
+        """Expire stored results even while the analysis feature is idle.
+
+        Returns:
+            None; runs until plugin shutdown.
+        """
+        while True:
+            await asyncio.sleep(CACHE_CLEANUP_INTERVAL_SECONDS)
+            try:
+                await self.service.storage.prune_analyses(self.retention_days)
+            except Exception:  # noqa: BLE001 - Keep scheduled cleanup alive.
+                logger.exception("清理过期 AI 分析缓存失败")
+
+    async def cached(self, game_seq: str) -> dict[str, Any] | None:
+        """Read a persisted analysis without requesting upstream data or AI.
+
+        Args:
+            game_seq: Unique battle identifier.
+
+        Returns:
+            Unexpired database record, or None.
+        """
+        return await self.service.storage.get_analysis(game_seq, self.retention_days)
+
+    @asynccontextmanager
+    async def _match_lock(self, game_seq: str) -> AsyncIterator[None]:
+        """Serialize generation and deletion for one battle.
+
+        Args:
+            game_seq: Unique battle identifier.
+
+        Yields:
+            Control while holding the lock. Reference counts include waiters so
+            cancellation cannot replace a lock that is still in use.
+        """
+        lock, users = self._match_locks.get(game_seq, (asyncio.Lock(), 0))
+        self._match_locks[game_seq] = (lock, users + 1)
+        try:
+            async with lock:
+                yield
+        finally:
+            _, users = self._match_locks[game_seq]
+            if users == 1:
+                self._match_locks.pop(game_seq)
+            else:
+                self._match_locks[game_seq] = (lock, users - 1)
+
+    async def clear_cache(self, game_seq: str) -> bool:
+        """Clear one battle after any ongoing generation has finished.
+
+        Args:
+            game_seq: Unique battle identifier.
+
+        Returns:
+            Whether a database result was deleted.
+        """
+        async with self._match_lock(game_seq):
+            deleted = await self.service.storage.delete_analysis(game_seq)
+            self._jobs = {
+                key: value
+                for key, value in self._jobs.items()
+                if value.get("game_seq") != game_seq
+            }
+            return deleted
 
     async def analyze(
         self,
@@ -62,15 +160,17 @@ class BattleAnalysisService:
         )
         if instructions == PREVIOUS_DEFAULT_ANALYSIS_PROMPT:
             instructions = DEFAULT_ANALYSIS_PROMPT
-        if not provider:
-            return self.service.err("请先在插件配置的「AI 对局分析」中选择分析模型")
         task = asyncio.current_task()
-        if task not in self._tasks and len(self._tasks) >= MAX_ACTIVE_ANALYSES:
-            return self.service.err("当前分析任务较多，请稍后再试")
-        if task:
-            self._tasks.add(task)
         try:
             async with asyncio.timeout(ANALYSIS_TIMEOUT_SECONDS):
+                if game_seq:
+                    cached = await self.cached(game_seq)
+                    if cached is not None:
+                        return self.service.ok(cached["text"])
+                if task not in self._tasks and len(self._tasks) >= MAX_ACTIVE_ANALYSES:
+                    return self.service.err("当前分析任务较多，请稍后再试")
+                if task:
+                    self._tasks.add(task)
                 if job is not None:
                     job.update(status="running", message="正在读取双方对局数据…")
                 detail = await self.service.battle_detail(
@@ -78,69 +178,29 @@ class BattleAnalysisService:
                 )
                 if detail.get("code") != 200:
                     return detail
-                if job is not None:
-                    job["message"] = "正在读取全员轨迹和关键事件…"
-                # 复用这次查询的详情与对局标识，不重复获取详情或按新序号取另一场。
-                replay = await self.service.battle_replay(
-                    keyword,
-                    index,
-                    game_seq=detail["data"]["match"]["game_seq"],
-                    detail_data=detail["data"],
-                )
-                if replay.get("code") != 200:
-                    return replay
-                try:
-                    data = build_analysis_data(detail["data"], replay["data"])
-                except ValueError as exc:
-                    return self.service.err(str(exc))
-                if job is not None:
-                    job["message"] = "正在分析双方表现、轨迹与事件…"
-                response = await self.context.llm_generate(
-                    chat_provider_id=provider,
-                    system_prompt=ANALYSIS_DATA_PROMPT,
-                    prompt=f"分析任务：\n{instructions}\n\n对局数据（JSON）：\n{json.dumps(data, ensure_ascii=False, separators=(',', ':'), allow_nan=False)}",
-                )
-                text = str(getattr(response, "completion_text", "") or "").strip()
-                if not text:
+                selected_seq = str(
+                    detail["data"]["match"].get("game_seq") or ""
+                ).strip()
+                if not selected_seq or (game_seq and game_seq != selected_seq):
                     return self.service.err(
-                        "模型没有返回分析内容，请重试或检查模型配置"
+                        "对局详情标识缺失或与所选对局不一致，请重新查询"
                     )
-                # 默认任务由程序填入真实比赛摘要，避免模型写出占位词或错认英雄。
-                # 自定义任务保留用户指定的输出方式。
-                if instructions == DEFAULT_ANALYSIS_PROMPT:
-                    text = re.sub(
-                        r"^```(?:text|plaintext)?\s*|\s*```$", "", text
-                    ).strip()
-                    result = re.fullmatch(
-                        r"(?:[^\r\n]+\r?\n)?【【获胜方】】\s*【原因】[：:]\s*(.+?)\s*【关键点】[：:]\s*(.+?)\s*【【失败方】】\s*【原因】[：:]\s*(.+?)\s*【关键点】[：:]\s*(.+?)\s*【背锅】[：:]\s*(.+)",
-                        text,
-                        re.S,
-                    )
-                    if not result:
+                if job is not None:
+                    job["game_seq"] = selected_seq
+                async with self._match_lock(selected_seq):
+                    cached = await self.cached(selected_seq)
+                    if cached is not None:
+                        return self.service.ok(cached["text"])
+                    if not provider:
                         return self.service.err(
-                            "模型未按分析格式返回内容，请重试或调整分析提示词"
+                            "请先在插件配置的「AI 对局分析」中选择分析模型"
                         )
-                    values = [
-                        re.sub(r"\s+", " ", value).strip() for value in result.groups()
-                    ]
-                    if not all(values):
-                        return self.service.err(
-                            "模型返回了空的分析项，请重试或调整分析提示词"
-                        )
-                    match = data["match"]
-                    header = "-".join(
-                        f"【{str(value or '—').strip()}】"
-                        for value in (
-                            match.get("played_at"),
-                            match.get("mode_name"),
-                            data["queried_player"]["hero_name"],
-                        )
+                    return await self._generate(
+                        keyword, index, detail["data"], provider, instructions, job
                     )
-                    text = f"{header}\n【【获胜方】】\n【原因】：{values[0]}\n【关键点】：{values[1]}\n【【失败方】】\n【原因】：{values[2]}\n【关键点】：{values[3]}\n【背锅】：{values[4]}"
-                return self.service.ok(text)
         except TimeoutError:
             return self.service.err("AI 对局分析超时，请稍后重试或更换响应更快的模型")
-        except Exception as exc:  # noqa: BLE001 - 模型或查询失败必须给出可读提示
+        except Exception as exc:  # noqa: BLE001 - Return readable failure details.
             logger.exception("AI 对局分析失败")
             return self.service.err(
                 f"AI 对局分析失败（{type(exc).__name__}），请检查模型配置后重试"
@@ -149,7 +209,82 @@ class BattleAnalysisService:
             if task:
                 self._tasks.discard(task)
 
-    def start(
+    async def _generate(
+        self,
+        keyword: str,
+        index: int,
+        detail_data: dict[str, Any],
+        provider: str,
+        instructions: str,
+        job: dict[str, Any] | None,
+    ) -> ServiceResult:
+        """Generate, validate and persist a result while holding its battle lock.
+
+        Args:
+            keyword: Queried player.
+            index: Recent battle position.
+            detail_data: Verified detail data for the selected battle.
+            provider: Configured model provider.
+            instructions: Configured analysis task prompt.
+            job: Optional web task progress.
+
+        Returns:
+            Validated and saved text, or a data/format error.
+        """
+        if job is not None:
+            job["message"] = "正在读取全员轨迹和关键事件…"
+        # Reuse the selected detail data to keep replay identity stable.
+        replay = await self.service.battle_replay(
+            keyword,
+            index,
+            game_seq=detail_data["match"]["game_seq"],
+            detail_data=detail_data,
+        )
+        if replay.get("code") != 200:
+            return replay
+        try:
+            data = build_analysis_data(detail_data, replay["data"])
+        except ValueError as exc:
+            return self.service.err(str(exc))
+        if job is not None:
+            job["message"] = "正在分析双方表现、轨迹与事件…"
+        response = await self.context.llm_generate(
+            chat_provider_id=provider,
+            system_prompt=ANALYSIS_DATA_PROMPT,
+            prompt=f"分析任务：\n{instructions}\n\n对局数据（JSON）：\n{json.dumps(data, ensure_ascii=False, separators=(',', ':'), allow_nan=False)}",
+        )
+        text = str(getattr(response, "completion_text", "") or "").strip()
+        if not text:
+            return self.service.err("模型没有返回分析内容，请重试或检查模型配置")
+        # Fill the default header from verified data; preserve custom output.
+        if instructions == DEFAULT_ANALYSIS_PROMPT:
+            text = re.sub(r"^```(?:text|plaintext)?\s*|\s*```$", "", text).strip()
+            result = re.fullmatch(
+                r"(?:[^\r\n]+\r?\n)?【【获胜方】】\s*【原因】[：:]\s*(.+?)\s*【关键点】[：:]\s*(.+?)\s*【【失败方】】\s*【原因】[：:]\s*(.+?)\s*【关键点】[：:]\s*(.+?)\s*【背锅】[：:]\s*(.+)",
+                text,
+                re.S,
+            )
+            if not result:
+                return self.service.err(
+                    "模型未按分析格式返回内容，请重试或调整分析提示词"
+                )
+            values = [re.sub(r"\s+", " ", value).strip() for value in result.groups()]
+            if not all(values):
+                return self.service.err("模型返回了空的分析项，请重试或调整分析提示词")
+            match = data["match"]
+            header = "-".join(
+                f"【{str(value or '—').strip()}】"
+                for value in (
+                    match.get("played_at"),
+                    match.get("mode_name"),
+                    data["queried_player"]["hero_name"],
+                )
+            )
+            text = f"{header}\n【【获胜方】】\n【原因】：{values[0]}\n【关键点】：{values[1]}\n【【失败方】】\n【原因】：{values[2]}\n【关键点】：{values[3]}\n【背锅】：{values[4]}"
+        await self.service.storage.save_analysis(detail_data["match"]["game_seq"], text)
+        return self.service.ok(text)
+
+    async def start(
         self, keyword: str, index: int = 1, *, game_seq: str = ""
     ) -> ServiceResult:
         """启动页面分析任务，避免宿主 HTTP 请求等待整个模型生成过程。
@@ -162,6 +297,10 @@ class BattleAnalysisService:
         Returns:
             后台任务标识或无法启动的原因。
         """
+        if game_seq:
+            cached = await self.cached(game_seq)
+            if cached is not None:
+                return self.service.ok({"status": "done", "text": cached["text"]})
         if not str(
             (self.config.get("analysis", {}) or {}).get("select_provider") or ""
         ).strip():
@@ -192,6 +331,7 @@ class BattleAnalysisService:
             "message": "分析任务已启动…",
             "text": "",
             "expires_at": now + JOB_LIFETIME_SECONDS,
+            "game_seq": game_seq,
         }
         self._jobs[task_id] = job
         task = asyncio.create_task(self._run_job(job, keyword, index, game_seq))
@@ -240,10 +380,13 @@ class BattleAnalysisService:
         Returns:
             无；等待后台任务结束，避免留下浏览器或 HTTP 之外的模型任务。
         """
-        tasks = tuple(self._tasks)
+        tasks = tuple(self._tasks) + (
+            (self._cleanup_task,) if self._cleanup_task is not None else ()
+        )
         for task in tasks:
             task.cancel()
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
         self._tasks.clear()
         self._jobs.clear()
+        self._cleanup_task = None

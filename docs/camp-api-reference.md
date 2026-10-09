@@ -20,16 +20,16 @@
 
 ## 1. 能力范围与扩展顺序
 
-| 优先级建议 | 能力 | 腾讯远程接口 | 本插件 v2.4.2 状态 | 参考价值 |
-| --- | --- | --- | --- | --- |
-| 高 | 按昵称搜索营地用户 | `POST /search/getbytype` | 开发版已接入；先查别名、游戏昵称，再在线搜索 | 帮助用户找到营地 ID，展示候选用户供选择 |
-| 高 | 按营地 ID 获取角色列表 | `POST /game/allrolelistv3` | 未接入；资料接口的 `roleList` 只选一个角色 | 获取角色列表、角色名称、区服描述与在线状态线索 |
-| 中 | 按模式查询战绩 | `POST /game/morebattlelist` | 开发版支持全部、排位、巅峰（0/1/4） | 标准与娱乐模式仍可留作后续扩展 |
-| 中 | 补充对局详情字段 | `POST /game/battledetail` | 已接入，只规范化部分字段 | 扩展分路、评分、治疗、控制、推塔等对局分析 |
-| 中 | 对局回顾 | `POST /game/battleanalyze/old` | 未接入 | 经济曲线、关键事件、移动轨迹与复盘建议线索 |
-| 中 | 角色英雄资料 | `POST /game/profile/herolist` | 未接入；已有赛季常用英雄数据 | 比较其与赛季接口的覆盖范围，再决定是否新增展示 |
-| 低 | 营地用户资料 | `POST /userprofile/profile` | 未接入；已有新版综合资料查询 | 比较补充字段，作为兼容性研究对象 |
-| 低 | 旧版角色概况 | `POST /game/profile/index` | 使用的是 `/game/koh/profile` | 比较旧版与新版字段和指定角色行为 |
+| 优先级建议 | 能力                   | 腾讯远程接口                   | 本插件 v2.4.2 状态                           | 参考价值                                       |
+| ---------- | ---------------------- | ------------------------------ | -------------------------------------------- | ---------------------------------------------- |
+| 高         | 按昵称搜索营地用户     | `POST /search/getbytype`       | 开发版已接入；先查别名、游戏昵称，再在线搜索 | 帮助用户找到营地 ID，展示候选用户供选择        |
+| 高         | 按营地 ID 获取角色列表 | `POST /game/allrolelistv3`     | 未接入；资料接口的 `roleList` 只选一个角色   | 获取角色列表、角色名称、区服描述与在线状态线索 |
+| 中         | 按模式查询战绩         | `POST /game/morebattlelist`    | 开发版支持全部、排位、巅峰（0/1/4）          | 标准与娱乐模式仍可留作后续扩展                 |
+| 中         | 补充对局详情字段       | `POST /game/battledetail`      | 已接入，只规范化部分字段                     | 扩展分路、评分、治疗、控制、推塔等对局分析     |
+| 中         | 对局回顾               | `POST /game/battleanalyze/old` | 未接入                                       | 经济曲线、关键事件、移动轨迹与复盘建议线索     |
+| 中         | 角色英雄资料           | `POST /game/profile/herolist`  | 未接入；已有赛季常用英雄数据                 | 比较其与赛季接口的覆盖范围，再决定是否新增展示 |
+| 低         | 营地用户资料           | `POST /userprofile/profile`    | 未接入；已有新版综合资料查询                 | 比较补充字段，作为兼容性研究对象               |
+| 低         | 旧版角色概况           | `POST /game/profile/index`     | 使用的是 `/game/koh/profile`                 | 比较旧版与新版字段和指定角色行为               |
 
 来源：[接口客户端][S2]、[昵称搜索][S1]。优先级是结合本插件现状提出的开发建议。
 
@@ -45,28 +45,28 @@
 
 ### 2.1 ID 对照
 
-| 名称 | 在来源项目中的用途 | 注意点 |
-| --- | --- | --- |
-| `uid` / `yd_user_id` / `friendUserId` / `targetUserId` | 被查询用户的营地 ID | `uid` 是服务层的命名，不应在产品中模糊地标成游戏角色 ID |
-| `friendUid` | 搜索结果中的用户标识，来源代码映射为 `uid` | 需在实测中用角色列表或资料接口验证结果对应的营地账号 |
-| `userId` / 请求头 `userId` / 配置 `user` | 发起请求的登录账号 ID | 查询他人时，它与目标营地 ID 可以不同 |
-| `roleId` / `targetRoleId` | 营地角色接口返回或使用的角色标识 | 不自动等同于游戏内个人主页显示的数字 ID |
-| `playerId` | 对局详情角色中的玩家标识，用于对局回顾请求 | 来源代码单独提取，不能用 `roleId` 直接替代 |
-| `playerID` | 回顾轨迹条目中的标识拼写 | 来源分析脚本用它匹配 `matchInfo[].playerId`，大小写需区分 |
-| `gameSeq` | 对局标识 | 回顾和详情使用；保留原值，避免浮点数转换 |
-| `gameSvr` / `gameSvrId` | 对局服务器参数 | 战绩返回读取 `gameSvrId`，详情请求发送 `gameSvr` |
-| `relaySvr` / `relaySvrId` | 对局中继服务器参数 | 战绩返回读取 `relaySvrId`，请求发送 `relaySvr` |
-| `sid` | 来源服务自己的绑定键 | 仅用于本地 `sid → uid` 绑定，不是腾讯接口参数 |
+| 名称                                                   | 在来源项目中的用途                         | 注意点                                                    |
+| ------------------------------------------------------ | ------------------------------------------ | --------------------------------------------------------- |
+| `uid` / `yd_user_id` / `friendUserId` / `targetUserId` | 被查询用户的营地 ID                        | `uid` 是服务层的命名，不应在产品中模糊地标成游戏角色 ID   |
+| `friendUid`                                            | 搜索结果中的用户标识，来源代码映射为 `uid` | 需在实测中用角色列表或资料接口验证结果对应的营地账号      |
+| `userId` / 请求头 `userId` / 配置 `user`               | 发起请求的登录账号 ID                      | 查询他人时，它与目标营地 ID 可以不同                      |
+| `roleId` / `targetRoleId`                              | 营地角色接口返回或使用的角色标识           | 不自动等同于游戏内个人主页显示的数字 ID                   |
+| `playerId`                                             | 对局详情角色中的玩家标识，用于对局回顾请求 | 来源代码单独提取，不能用 `roleId` 直接替代                |
+| `playerID`                                             | 回顾轨迹条目中的标识拼写                   | 来源分析脚本用它匹配 `matchInfo[].playerId`，大小写需区分 |
+| `gameSeq`                                              | 对局标识                                   | 回顾和详情使用；保留原值，避免浮点数转换                  |
+| `gameSvr` / `gameSvrId`                                | 对局服务器参数                             | 战绩返回读取 `gameSvrId`，详情请求发送 `gameSvr`          |
+| `relaySvr` / `relaySvrId`                              | 对局中继服务器参数                         | 战绩返回读取 `relaySvrId`，请求发送 `relaySvr`            |
+| `sid`                                                  | 来源服务自己的绑定键                       | 仅用于本地 `sid → uid` 绑定，不是腾讯接口参数             |
 
 来源：[搜索结果映射][S1]、[回顾参数解析][S2]、[绑定配置][S5]、[轨迹匹配脚本][S8]。
 
 ### 2.2 腾讯远程域名
 
-| 基础地址 | 用途 |
-| --- | --- |
-| `https://kohcamp.qq.com` | 搜索、战绩、资料、英雄资料、对局详情和对局回顾 |
-| `https://ssl.kohsocialapp.qq.com:10001` | `allrolelistv3` 角色列表 |
-| `https://pvp.qq.com` | 静态英雄目录，见第 10 节 |
+| 基础地址                                | 用途                                           |
+| --------------------------------------- | ---------------------------------------------- |
+| `https://kohcamp.qq.com`                | 搜索、战绩、资料、英雄资料、对局详情和对局回顾 |
+| `https://ssl.kohsocialapp.qq.com:10001` | `allrolelistv3` 角色列表                       |
+| `https://pvp.qq.com`                    | 静态英雄目录，见第 10 节                       |
 
 来源客户端使用请求头中的 `token` 与 `userId`，部分表单还在请求体中携带相同凭据。我们已有的 `CampAuthStore`、扫码登录和账号池是接入时的登录态来源；每次换号后，请求头与表单凭据都要来自本次实际选中的同一个账号。
 
@@ -101,13 +101,13 @@ Content-Type: application/x-protobuf
 
 来源仓库没有提交 `.proto` 文件，而是手写以下字段。字段编号、wire type 和常量可以确认；除搜索词外，各常量的完整业务含义没有在源码中定义。
 
-| 字段号 | Wire type | 编码类型 | 来源发送值 | 已确认含义 |
-| --- | --- | --- | --- | --- |
-| 1 | 0 | varint | `1011` | 固定常量；搜索分类含义待确认 |
-| 2 | 2 | 长度前缀字节串 | `name` 的 UTF-8 字节 | 搜索词 |
-| 3 | 0 | varint | `1` | 固定常量；是否为页码待确认 |
-| 4 | 0 | varint | `10` | 固定常量；是否为每页数量待确认 |
-| 7 | 2 | 长度前缀字节串 | 字符串 `"0"` | 固定常量；是否为游标待确认 |
+| 字段号 | Wire type | 编码类型       | 来源发送值           | 已确认含义                     |
+| ------ | --------- | -------------- | -------------------- | ------------------------------ |
+| 1      | 0         | varint         | `1011`               | 固定常量；搜索分类含义待确认   |
+| 2      | 2         | 长度前缀字节串 | `name` 的 UTF-8 字节 | 搜索词                         |
+| 3      | 0         | varint         | `1`                  | 固定常量；是否为页码待确认     |
+| 4      | 0         | varint         | `10`                 | 固定常量；是否为每页数量待确认 |
+| 7      | 2         | 长度前缀字节串 | 字符串 `"0"`         | 固定常量；是否为游标待确认     |
 
 来源只实现这组固定参数。后续不能直接将字段 3、4、7 宣称为完整分页协议，应先比较多组真实搜索响应。[请求构造][S1]
 
@@ -121,14 +121,14 @@ root.field[3] → data.field[1] → userGroup.field[25] → user.field[2] → de
 
 这些层级名称来自源码注释，不代表已取得腾讯的正式 schema。
 
-| `detail` 字段号 | 来源读取类型 | 输出键 | 源码注释 / 用途 |
-| --- | --- | --- | --- |
-| 17 | varint | `uid` | `friendUid`，转换为字符串 |
-| 2 | 字节串 | `name` | `nickname`，UTF-8 文本 |
-| 3 | 字节串 | `avatar` | `avatarUrl` |
-| 10 | varint | `level` | 等级，输出为字符串 |
-| 28 | 字节串 | `dw` | `title1`，展示文字；具体段位语义待实测 |
-| 37 | 字节串 | `region` | 地区文字；是否等同游戏区服待实测 |
+| `detail` 字段号 | 来源读取类型 | 输出键   | 源码注释 / 用途                        |
+| --------------- | ------------ | -------- | -------------------------------------- |
+| 17              | varint       | `uid`    | `friendUid`，转换为字符串              |
+| 2               | 字节串       | `name`   | `nickname`，UTF-8 文本                 |
+| 3               | 字节串       | `avatar` | `avatarUrl`                            |
+| 10              | varint       | `level`  | 等级，输出为字符串                     |
+| 28              | 字节串       | `dw`     | `title1`，展示文字；具体段位语义待实测 |
+| 37              | 字节串       | `region` | 地区文字；是否等同游戏区服待实测       |
 
 来源缺失字符串输出空串，数字 `uid` / `level` 经过 `or ""` 后也可能输出空串。其结果不是游戏角色列表，里面没有解析 `roleId`。[响应映射][S1]
 
@@ -136,13 +136,13 @@ root.field[3] → data.field[1] → userGroup.field[25] → user.field[2] → de
 
 ### 3.4 本插件接入位置
 
-| 现有模块 | 需要处理的差异 |
-| --- | --- |
-| `core/http.py` | 开发版已在 `HttpResponse.body` 保留响应字节，同时兼容已有 `text` |
-| `core/camp_client.py` | 开发版使用 `protobuf=True` 发送二进制并解析业务状态，沿用账号池重试 |
-| `core/camp_api.py` | 开发版 `search_users` 返回去重后的候选用户集合 |
-| `core/service.py` / `core/webui.py` | 开发版优先查精确别名与游戏昵称，处理多候选和空结果 |
-| 页面 / 消息入口 | 开发版展示编号、昵称、地区、段位和营地 ID，支持 60 秒选择 |
+| 现有模块                            | 需要处理的差异                                                      |
+| ----------------------------------- | ------------------------------------------------------------------- |
+| `core/http.py`                      | 开发版已在 `HttpResponse.body` 保留响应字节，同时兼容已有 `text`    |
+| `core/camp_client.py`               | 开发版使用 `protobuf=True` 发送二进制并解析业务状态，沿用账号池重试 |
+| `core/camp_api.py`                  | 开发版 `search_users` 返回去重后的候选用户集合                      |
+| `core/service.py` / `core/webui.py` | 开发版优先查精确别名与游戏昵称，处理多候选和空结果                  |
+| 页面 / 消息入口                     | 开发版展示编号、昵称、地区、段位和营地 ID，支持 60 秒选择           |
 
 来源的 `_parse` 没有完整的长度边界、varint 长度限制和未知 wire type 错误处理；`search()` 也未显式检查 HTTP 成功状态或 Protobuf 业务状态。移植时需要补齐这些错误路径，继续复用账号失效与频控处理，避免把错误响应解析成“未找到用户”。
 
@@ -165,11 +165,11 @@ Host: ssl.kohsocialapp.qq.com:10001
 Content-Type: application/x-www-form-urlencoded
 ```
 
-| 表单字段 | 取值来源 | 说明 |
-| --- | --- | --- |
-| `friendUserId` | 用户输入或搜索结果中的营地 ID | 被查询用户 |
-| `token` | 本次选中的登录账号 | 与请求头 token 一致 |
-| `userId` | 本次选中的登录账号 ID | 与请求头 userid 一致 |
+| 表单字段       | 取值来源                      | 说明                 |
+| -------------- | ----------------------------- | -------------------- |
+| `friendUserId` | 用户输入或搜索结果中的营地 ID | 被查询用户           |
+| `token`        | 本次选中的登录账号            | 与请求头 token 一致  |
+| `userId`       | 本次选中的登录账号 ID         | 与请求头 userid 一致 |
 
 来源 `get_user_role(yd_user_id)` 用 `data=` 发送表单并直接解析 JSON；请求头同时携带账号凭据。[请求实现][S2]
 
@@ -190,12 +190,12 @@ Content-Type: application/x-www-form-urlencoded
 }
 ```
 
-| 字段 | 来源代码的使用方式 | 扩展用途 |
-| --- | --- | --- |
-| `data[].roleId` | 转成字符串传给资料、英雄与详情接口 | 保留角色标识 |
-| `data[].roleName` | 资料、战绩和绑定列表显示 | 角色选择项名称 |
-| `data[].roleDesc` | 绑定列表读取 | 区服或角色描述线索；具体格式待确认 |
-| `data[].gameOnline` | 绑定列表读取 | 在线状态线索；值类型与含义待确认 |
+| 字段                | 来源代码的使用方式                 | 扩展用途                           |
+| ------------------- | ---------------------------------- | ---------------------------------- |
+| `data[].roleId`     | 转成字符串传给资料、英雄与详情接口 | 保留角色标识                       |
+| `data[].roleName`   | 资料、战绩和绑定列表显示           | 角色选择项名称                     |
+| `data[].roleDesc`   | 绑定列表读取                       | 区服或角色描述线索；具体格式待确认 |
+| `data[].gameOnline` | 绑定列表读取                       | 在线状态线索；值类型与含义待确认   |
 
 来源：[资料与绑定路由][S3]。
 
@@ -239,13 +239,13 @@ Content-Type: application/json; charset=UTF-8
 }
 ```
 
-| `option` | 来源包装层的模式映射 | 验证状态 |
-| --- | --- | --- |
-| 0 | 全部 | 本插件已支持全部模式 |
-| 1 | 排位 | 开发版已接入；本次真实请求返回的 30 条均归类为排位 |
-| 2 | 标准 | 来源映射已实现，不应自行改称只包含某一种匹配模式 |
-| 3 | 娱乐 | 来源映射已实现，具体模式集合待验证 |
-| 4 | 巅峰 | 开发版已接入；本次真实请求为空，非空响应另有离线分类验证 |
+| `option` | 来源包装层的模式映射 | 验证状态                                                 |
+| -------- | -------------------- | -------------------------------------------------------- |
+| 0        | 全部                 | 本插件已支持全部模式                                     |
+| 1        | 排位                 | 开发版已接入；本次真实请求返回的 30 条均归类为排位       |
+| 2        | 标准                 | 来源映射已实现，不应自行改称只包含某一种匹配模式         |
+| 3        | 娱乐                 | 来源映射已实现，具体模式集合待验证                       |
+| 4        | 巅峰                 | 开发版已接入；本次真实请求为空，非空响应另有离线分类验证 |
 
 `isMultiGame=1` 是来源增加的常量，源码没有给出它的完整语义。应独立比较开启 / 不开启的响应，避免与角色切换混淆。
 
@@ -355,34 +355,34 @@ Content-Type: application/json; charset=UTF-8
 
 下列字段来自源码读取或调试探索，仓库没有提交对应真实响应文件；字段可选性、类型、单位和数值范围需实测确认。
 
-| 路径（均在 `data.redRoles[]` / `data.blueRoles[]` 内） | 来源用途或线索 | 对本插件的价值 |
-| --- | --- | --- |
-| `basicInfo.roleId` | 匹配角色 | 严格定位用户选中的目标角色 |
-| `basicInfo.playerId` | 回顾参数 | 获取对局回顾需要的玩家标识 |
-| `basicInfo.isMe` | 来源参数补全中的匹配条件 | 查询他人时语义需确认，优先核对选中的 `roleId` |
-| `battleRecords.position` | 来源转换为 `lane` | 展示该场实际分路 |
-| `battleStats.healCnt` | 分析脚本读取 | 治疗数据线索 |
-| `battleStats.ctrlTime` | 分析脚本读取 | 控制时长线索；单位待确认 |
-| `battleStats.towerCnt` | 分析脚本读取 | 推塔数据线索 |
-| `battleStats.buildingDamage` | 分析脚本读取 | 建筑伤害线索 |
-| `battleStats.gradeGame` | 分析脚本读取 | 对局评分线索 |
-| `battleStats.hurtTransRate` | 分析脚本读取 | 伤害转化相关字段；定义与比例尺度待确认 |
-| `battleStats.sabchurthero` / `sabcbattle` / `sabcgrow` / `sabcsurvive` | 分析脚本组合输出 | 对局维度评级线索；枚举与准确名称待确认 |
-| `heroBehavior` | 调试脚本输出 | 本人英雄历史表现相关结构线索 |
-| `dataBehavior` / `dataBehaviorV2` | 调试脚本输出 | 更细的表现数据结构线索 |
-| `dataBehaviorV2[].title` / `dataCounts[].name,data,dataNote` | 分析脚本读取 | 标题、指标、值和对照说明；单位待确认 |
+| 路径（均在 `data.redRoles[]` / `data.blueRoles[]` 内）                 | 来源用途或线索           | 对本插件的价值                                |
+| ---------------------------------------------------------------------- | ------------------------ | --------------------------------------------- |
+| `basicInfo.roleId`                                                     | 匹配角色                 | 严格定位用户选中的目标角色                    |
+| `basicInfo.playerId`                                                   | 回顾参数                 | 获取对局回顾需要的玩家标识                    |
+| `basicInfo.isMe`                                                       | 来源参数补全中的匹配条件 | 查询他人时语义需确认，优先核对选中的 `roleId` |
+| `battleRecords.position`                                               | 来源转换为 `lane`        | 展示该场实际分路                              |
+| `battleStats.healCnt`                                                  | 分析脚本读取             | 治疗数据线索                                  |
+| `battleStats.ctrlTime`                                                 | 分析脚本读取             | 控制时长线索；单位待确认                      |
+| `battleStats.towerCnt`                                                 | 分析脚本读取             | 推塔数据线索                                  |
+| `battleStats.buildingDamage`                                           | 分析脚本读取             | 建筑伤害线索                                  |
+| `battleStats.gradeGame`                                                | 分析脚本读取             | 对局评分线索                                  |
+| `battleStats.hurtTransRate`                                            | 分析脚本读取             | 伤害转化相关字段；定义与比例尺度待确认        |
+| `battleStats.sabchurthero` / `sabcbattle` / `sabcgrow` / `sabcsurvive` | 分析脚本组合输出         | 对局维度评级线索；枚举与准确名称待确认        |
+| `heroBehavior`                                                         | 调试脚本输出             | 本人英雄历史表现相关结构线索                  |
+| `dataBehavior` / `dataBehaviorV2`                                      | 调试脚本输出             | 更细的表现数据结构线索                        |
+| `dataBehaviorV2[].title` / `dataCounts[].name,data,dataNote`           | 分析脚本读取             | 标题、指标、值和对照说明；单位待确认          |
 
 来源：[参数补全与详情][S2]、[详情分析脚本][S9]、[统计结构探索][S10]。
 
 来源的 `battleRecords.position` 映射如下，其注释称作者曾人工核对，本次没有重新核对真实对局：
 
-| 值 | 来源映射 |
-| --- | --- |
-| 0 | 对抗路 |
-| 1 | 中路 |
-| 2 | 发育路 |
-| 3 | 打野 |
-| 4 | 游走 |
+| 值  | 来源映射 |
+| --- | -------- |
+| 0   | 对抗路   |
+| 1   | 中路     |
+| 2   | 发育路   |
+| 3   | 打野     |
+| 4   | 游走     |
 
 来源：[分路映射][S2]。这套编号与本插件英雄目录的 `roles`、奖牌的 `branchEvaluate` 是不同字段，不能共用一个编号表。
 
@@ -397,11 +397,11 @@ Content-Type: application/json; charset=UTF-8
 
 来源函数还提供两个分支，分支存在于源码并不代表本次已确认线上可用：
 
-| 条件 | 路径 | 状态 |
-| --- | --- | --- |
-| 默认 | `/game/battleanalyze/old` | 有参数补全与调试调用代码 |
+| 条件        | 路径                          | 状态                               |
+| ----------- | ----------------------------- | ---------------------------------- |
+| 默认        | `/game/battleanalyze/old`     | 有参数补全与调试调用代码           |
 | `beta=True` | `/game/betabattleanalyze/old` | 仅记录来源分支，范围与可用性待验证 |
-| `kpl=True` | `/game/kplbattleanalyze/old` | 仅记录来源分支，范围与可用性待验证 |
+| `kpl=True`  | `/game/kplbattleanalyze/old`  | 仅记录来源分支，范围与可用性待验证 |
 
 来源代码在两个开关都开启时优先选 `kpl`。[回顾请求][S2]
 
@@ -417,13 +417,13 @@ Content-Type: application/json; charset=UTF-8
 }
 ```
 
-| 字段 | 参数来源 | 来源发送行为 |
-| --- | --- | --- |
-| `gameSeq` | 战绩列表目标对局 | 转为字符串，总是发送 |
-| `gameSvr` | 目标对局的 `gameSvrId` | 转为字符串，总是发送 |
-| `relaySvr` | 目标对局的 `relaySvrId` | 非空时发送 |
+| 字段       | 参数来源                              | 来源发送行为                                      |
+| ---------- | ------------------------------------- | ------------------------------------------------- |
+| `gameSeq`  | 战绩列表目标对局                      | 转为字符串，总是发送                              |
+| `gameSvr`  | 目标对局的 `gameSvrId`                | 转为字符串，总是发送                              |
+| `relaySvr` | 目标对局的 `relaySvrId`               | 非空时发送                                        |
 | `playerId` | 详情中目标角色的 `basicInfo.playerId` | 非空时发送；README 与服务路由将其视为必要定位条件 |
-| `h5Get` | 常量 | 数字 `1` |
+| `h5Get`    | 常量                                  | 数字 `1`                                          |
 
 来源按文本是否以 `{` 开始决定直接解析 JSON，其他情况尝试解密。我们应将这一行为当作兼容性线索，结合 HTTP 状态、响应头与解密结果明确处理错误，避免将任意非 JSON 文本都判成有效密文。
 
@@ -446,24 +446,24 @@ Content-Type: application/json; charset=UTF-8
 
 ### 9.4 回顾字段线索
 
-| 路径（均在外层 `data` 中） | 源码读取或说明 | 可能的功能 |
-| --- | --- | --- |
-| `matchInfo[]` | 阵容、英雄、KDA、`userId`、`playerId` 等 | 对局成员信息与轨迹关联 |
-| `camp1GoldArr` / `camp2GoldArr` | 双方经济序列 | 双方经济曲线 |
-| `ecoDistance` | 经济差序列 | 优势变化与经济差图 |
-| `camp1Gold` / `camp2Gold` | 分析脚本读取 | 终局经济线索 |
-| `winCamp` | 分析脚本读取 | 胜方线索 |
-| `keyEventArr[]` | README 说明包含关键事件及坐标 / 时间线索 | 关键事件时间线 |
-| `keyEventArr[].eventType` | 分析脚本计数 | 事件分类；完整枚举待确认 |
-| `keyEventArr[].viewX,viewY,killTime` | README 说明 | 坐标与时间字段；单位和适用事件待确认 |
-| `extendEventArr[].eventList[]` | 调试脚本探索 | 更多事件线索 |
-| `reportData.playerPosInfo[]` | 玩家轨迹结构 | 地图轨迹 |
-| `reportData.playerPosInfo[].playerID` | 分析脚本匹配玩家 | 与 `matchInfo[].playerId` 关联 |
-| `reportData.playerPosInfo[].posArr` | 位置序列，README 描述为 `[x,y]` | 移动轨迹；坐标尺度与采样间隔待确认 |
-| `playBaseInfoArr[].deathPosArr` | README 说明 / 调试脚本探索 | 死亡位置分析 |
-| `reportData.skillUsedInfo` | 调试脚本检查类型和内容 | 技能使用结构线索，schema 未确认 |
-| `reportData.noMistakeText` | 分析脚本读取 | 复盘文字线索 |
-| `reportData.adviceList` / `personBehaviorAdvices` | 分析脚本读取 | 建议结构线索 |
+| 路径（均在外层 `data` 中）                        | 源码读取或说明                           | 可能的功能                           |
+| ------------------------------------------------- | ---------------------------------------- | ------------------------------------ |
+| `matchInfo[]`                                     | 阵容、英雄、KDA、`userId`、`playerId` 等 | 对局成员信息与轨迹关联               |
+| `camp1GoldArr` / `camp2GoldArr`                   | 双方经济序列                             | 双方经济曲线                         |
+| `ecoDistance`                                     | 经济差序列                               | 优势变化与经济差图                   |
+| `camp1Gold` / `camp2Gold`                         | 分析脚本读取                             | 终局经济线索                         |
+| `winCamp`                                         | 分析脚本读取                             | 胜方线索                             |
+| `keyEventArr[]`                                   | README 说明包含关键事件及坐标 / 时间线索 | 关键事件时间线                       |
+| `keyEventArr[].eventType`                         | 分析脚本计数                             | 事件分类；完整枚举待确认             |
+| `keyEventArr[].viewX,viewY,killTime`              | README 说明                              | 坐标与时间字段；单位和适用事件待确认 |
+| `extendEventArr[].eventList[]`                    | 调试脚本探索                             | 更多事件线索                         |
+| `reportData.playerPosInfo[]`                      | 玩家轨迹结构                             | 地图轨迹                             |
+| `reportData.playerPosInfo[].playerID`             | 分析脚本匹配玩家                         | 与 `matchInfo[].playerId` 关联       |
+| `reportData.playerPosInfo[].posArr`               | 位置序列，README 描述为 `[x,y]`          | 移动轨迹；坐标尺度与采样间隔待确认   |
+| `playBaseInfoArr[].deathPosArr`                   | README 说明 / 调试脚本探索               | 死亡位置分析                         |
+| `reportData.skillUsedInfo`                        | 调试脚本检查类型和内容                   | 技能使用结构线索，schema 未确认      |
+| `reportData.noMistakeText`                        | 分析脚本读取                             | 复盘文字线索                         |
+| `reportData.adviceList` / `personBehaviorAdvices` | 分析脚本读取                             | 建议结构线索                         |
 
 来源：[README 字段说明][S4]、[经济与事件分析][S11]、[成员与轨迹关联][S8]、[事件结构探索][S12]。
 
@@ -485,15 +485,15 @@ Content-Type: application/json; charset=UTF-8
 
 下面的路径属于上游 FastAPI 服务。后续直接接入腾讯时，应参考其远程调用，而非把这些路由附在腾讯域名后。[路由源码][S3]
 
-| 上游服务路由 | 输入 | 内部流程 / 返回 |
-| --- | --- | --- |
-| `GET /query/show` | `name` | Protobuf 昵称搜索，返回候选用户或包装层提示对象 |
-| `GET /user/` | `uid` 或绑定的 `sid` | 角色列表取一个角色，再组合 `profile`、`profileIndex`、`heroList` |
-| `GET /battle/history` | `uid` / `sid`，可带 `opt` | 返回角色名、角色 ID、场数与战绩列表；未逐局获取装备详情 |
-| `GET /battle/preview` | `uid` / `sid`，可带 `opt` | 基于返回战绩计算场次、胜率、MVP 与模式统计 |
-| `GET /battle/replay` | 自动模式 `uid` + 可选 `gameSeq`；直接模式对局参数 + `playerId` | 自动补齐参数或直接调用回顾接口 |
-| `GET /bind/`、`/bind/un`、`/bind/switch`、`/bind/get`、`/bind/reload` | `sid` / `uid` 等 | 上游自己的本地账号绑定与配置操作 |
-| `GET /health` | 无 | 服务健康状态 |
+| 上游服务路由                                                          | 输入                                                           | 内部流程 / 返回                                                  |
+| --------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `GET /query/show`                                                     | `name`                                                         | Protobuf 昵称搜索，返回候选用户或包装层提示对象                  |
+| `GET /user/`                                                          | `uid` 或绑定的 `sid`                                           | 角色列表取一个角色，再组合 `profile`、`profileIndex`、`heroList` |
+| `GET /battle/history`                                                 | `uid` / `sid`，可带 `opt`                                      | 返回角色名、角色 ID、场数与战绩列表；未逐局获取装备详情          |
+| `GET /battle/preview`                                                 | `uid` / `sid`，可带 `opt`                                      | 基于返回战绩计算场次、胜率、MVP 与模式统计                       |
+| `GET /battle/replay`                                                  | 自动模式 `uid` + 可选 `gameSeq`；直接模式对局参数 + `playerId` | 自动补齐参数或直接调用回顾接口                                   |
+| `GET /bind/`、`/bind/un`、`/bind/switch`、`/bind/get`、`/bind/reload` | `sid` / `uid` 等                                               | 上游自己的本地账号绑定与配置操作                                 |
+| `GET /health`                                                         | 无                                                             | 服务健康状态                                                     |
 
 本插件已有本地名称映射、管理页和账号管理。参考远程协议即可，绑定与 HTTP 服务结构没有必要整体迁移。
 
@@ -511,15 +511,15 @@ Content-Type: application/json; charset=UTF-8
 
 ### 12.2 复用边界
 
-| 层 | 扩展职责 |
-| --- | --- |
-| `HttpClient` / `HttpResponse` | 二进制体和原始字节、现有超时 / 完整分块读取 / 响应大小限制 |
-| `CampClient` | 固定目标域名、编码选择、按响应类型解析、当前账号凭据、频控与失效换号 |
-| `CampDataApi` | 搜索、角色列表、英雄资料、回顾等业务封装，以及已有战绩查询选项 |
-| 模型解析 | 区分营地 ID / 角色 ID / 玩家 ID，规范化字段，保留缺失状态 |
-| `GokService` | 候选与角色选择、调用编排、已有对局定位和统计 |
-| 页面 / 消息层 | 展示选择、图表和文本，不承担请求鉴权或原始协议解析 |
-| `GokStorage` | 继续只保存用户设置和名称映射；角色选择持久化需先确定契约 |
+| 层                            | 扩展职责                                                             |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `HttpClient` / `HttpResponse` | 二进制体和原始字节、现有超时 / 完整分块读取 / 响应大小限制           |
+| `CampClient`                  | 固定目标域名、编码选择、按响应类型解析、当前账号凭据、频控与失效换号 |
+| `CampDataApi`                 | 搜索、角色列表、英雄资料、回顾等业务封装，以及已有战绩查询选项       |
+| 模型解析                      | 区分营地 ID / 角色 ID / 玩家 ID，规范化字段，保留缺失状态            |
+| `GokService`                  | 候选与角色选择、调用编排、已有对局定位和统计                         |
+| 页面 / 消息层                 | 展示选择、图表和文本，不承担请求鉴权或原始协议解析                   |
+| `GokStorage`                  | 继续只保存用户设置和名称映射；角色选择持久化需先确定契约             |
 
 ### 12.3 保留现有约束
 
@@ -534,16 +534,16 @@ Content-Type: application/json; charset=UTF-8
 
 验证新功能时，可以为每个接口记录以下信息。样本应脱敏，凭据仍只保存在插件数据目录。
 
-| 项目 | 需要记录的内容 |
-| --- | --- |
-| 接口版本 | 地址、客户端版本、验证日期、来源快照 |
-| 输入身份 | 目标营地 ID / 角色 ID / 对局参数，示例使用占位符或脱敏值 |
-| 请求编码 | JSON、表单或 Protobuf；具体字段和值类型 |
-| 响应处理 | HTTP 状态、关键业务头、业务码、响应类型、是否解密或解压 |
-| 正常行为 | 实际返回的字段路径、类型、单位与缺失条件 |
-| 异常行为 | 登录失效、频控、隐藏信息、空列表、无匹配角色、参数缺失 |
-| 账号一致性 | 换号后头与体的凭据仍一致，没有冷却有效账号 |
-| 回归范围 | 原有资料、战绩、对局详情、名称映射和消息降级仍正常 |
+| 项目       | 需要记录的内容                                           |
+| ---------- | -------------------------------------------------------- |
+| 接口版本   | 地址、客户端版本、验证日期、来源快照                     |
+| 输入身份   | 目标营地 ID / 角色 ID / 对局参数，示例使用占位符或脱敏值 |
+| 请求编码   | JSON、表单或 Protobuf；具体字段和值类型                  |
+| 响应处理   | HTTP 状态、关键业务头、业务码、响应类型、是否解密或解压  |
+| 正常行为   | 实际返回的字段路径、类型、单位与缺失条件                 |
+| 异常行为   | 登录失效、频控、隐藏信息、空列表、无匹配角色、参数缺失   |
+| 账号一致性 | 换号后头与体的凭据仍一致，没有冷却有效账号               |
+| 回归范围   | 原有资料、战绩、对局详情、名称映射和消息降级仍正常       |
 
 有意义的离线验证包括 Protobuf 编码向量与截断响应、重复候选解析、角色空数组、跨域表单凭据随账号切换、筛选值跨页保持、正确匹配 `playerId`、复盘字段缺失时降级，以及解密后的压缩样本。真实接口验证应使用单独的主动联调入口，避免导入测试模块就发起联网请求。
 
@@ -553,17 +553,17 @@ Content-Type: application/json; charset=UTF-8
 
 2026-10-07，按用户要求使用“祈无恙”作为搜索词，通过本插件现有微信扫码登录取得登录态后，直接请求 `/search/getbytype`。
 
-| 验证项 | 实际结果 |
-| --- | --- |
-| 请求编码 | 使用来源 `build_request` 构造 Protobuf，`Content-Type: application/x-protobuf` |
-| 鉴权与客户端头 | 使用本插件 `CampClient._build_headers`，含当前登录态安全参数；客户端版本为 `10.111.0323` / `2057957801` |
-| HTTP 状态 | `200` |
-| 响应 Content-Type | `application/x-protobuf` |
-| 响应体长度 | 2538 字节 |
-| 业务状态 | 根字段 2，wire type 2，UTF-8 字符串 `success`；本次不是整型状态码 |
-| 用户解析 | 按 `3 → 1 → 25 → 2` 路径解析出 2 个同名用户 |
-| 已验证输出键 | `uid`、`name`、`avatar`、`level`、`dw`、`region` |
-| 原始字节 | 二进制附件与结果中的 Base64 解码值一致 |
+| 验证项            | 实际结果                                                                                                |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| 请求编码          | 使用来源 `build_request` 构造 Protobuf，`Content-Type: application/x-protobuf`                          |
+| 鉴权与客户端头    | 使用本插件 `CampClient._build_headers`，含当前登录态安全参数；客户端版本为 `10.111.0323` / `2057957801` |
+| HTTP 状态         | `200`                                                                                                   |
+| 响应 Content-Type | `application/x-protobuf`                                                                                |
+| 响应体长度        | 2538 字节                                                                                               |
+| 业务状态          | 根字段 2，wire type 2，UTF-8 字符串 `success`；本次不是整型状态码                                       |
+| 用户解析          | 按 `3 → 1 → 25 → 2` 路径解析出 2 个同名用户                                                             |
+| 已验证输出键      | `uid`、`name`、`avatar`、`level`、`dw`、`region`                                                        |
+| 原始字节          | 二进制附件与结果中的 Base64 解码值一致                                                                  |
 
 这次请求验证了当前扫码登录态、本插件请求头与来源搜索编码可以配合使用，也验证了上表中的一次成功响应结构。原始响应与用户明细作为此次聊天的文件输出交付，文档不保存玩家明细或登录凭据。
 
@@ -575,20 +575,20 @@ Content-Type: application/json; charset=UTF-8
 
 以下 S 系列链接固定到 `hok_camp_api` 本次读取的提交，便于后续复核，避免仓库更新后行号与含义发生变化。新增项目的 G 系列索引见第 25 节。
 
-| 编号 | 文件 | 主要参考内容 |
-| --- | --- | --- |
-| S1 | [app/search.py][S1] | Protobuf 搜索请求、嵌套响应、输出映射 |
-| S2 | [app/camp_api.py][S2] | 腾讯接口常量、请求头、角色 / 资料 / 战绩 / 回顾调用 |
-| S3 | [app/main.py][S3] | 包装路由、模式选项、组合资料和绑定结果 |
-| S4 | [README.md][S4] | 回顾字段说明与尚未实现的能力 |
-| S5 | [app/config.py][S5] | 登录凭据来源与本地绑定语义 |
-| S6 | [app/crypto.py][S6] | XXTEA、gzip / zlib 解密处理 |
-| S7 | [dbg_search.py][S7] | 搜索响应结构探索；其中早期探测请求未覆盖 Protobuf Content-Type，正式实现以 S1 为准 |
-| S8 | [analyze2.py][S8] | 回顾成员 `userId` / `playerId` 与轨迹关联 |
-| S9 | [dbg_all.py][S9] | 详情统计和 `dataBehaviorV2` 字段读取 |
-| S10 | [dbg_stats.py][S10] | `battleStats` / `heroBehavior` 等结构探索 |
-| S11 | [analyze.py][S11] | 回顾经济、事件与建议字段探索 |
-| S12 | [dbg_events.py][S12] | 事件与技能信息结构探索 |
+| 编号 | 文件                  | 主要参考内容                                                                       |
+| ---- | --------------------- | ---------------------------------------------------------------------------------- |
+| S1   | [app/search.py][S1]   | Protobuf 搜索请求、嵌套响应、输出映射                                              |
+| S2   | [app/camp_api.py][S2] | 腾讯接口常量、请求头、角色 / 资料 / 战绩 / 回顾调用                                |
+| S3   | [app/main.py][S3]     | 包装路由、模式选项、组合资料和绑定结果                                             |
+| S4   | [README.md][S4]       | 回顾字段说明与尚未实现的能力                                                       |
+| S5   | [app/config.py][S5]   | 登录凭据来源与本地绑定语义                                                         |
+| S6   | [app/crypto.py][S6]   | XXTEA、gzip / zlib 解密处理                                                        |
+| S7   | [dbg_search.py][S7]   | 搜索响应结构探索；其中早期探测请求未覆盖 Protobuf Content-Type，正式实现以 S1 为准 |
+| S8   | [analyze2.py][S8]     | 回顾成员 `userId` / `playerId` 与轨迹关联                                          |
+| S9   | [dbg_all.py][S9]      | 详情统计和 `dataBehaviorV2` 字段读取                                               |
+| S10  | [dbg_stats.py][S10]   | `battleStats` / `heroBehavior` 等结构探索                                          |
+| S11  | [analyze.py][S11]     | 回顾经济、事件与建议字段探索                                                       |
+| S12  | [dbg_events.py][S12]  | 事件与技能信息结构探索                                                             |
 
 [S1]: https://github.com/ningxiaoxiao/hok_camp_api/blob/13177c122bbf684cc793aab17089754978e66f93/app/search.py
 [S2]: https://github.com/ningxiaoxiao/hok_camp_api/blob/13177c122bbf684cc793aab17089754978e66f93/app/camp_api.py
@@ -607,17 +607,17 @@ Content-Type: application/json; charset=UTF-8
 
 ### 16.1 固定快照
 
-| 项目 | 本次记录 |
-| --- | --- |
-| 来源项目 | [wzq10314/astrbot_plugin_gloryofkings](https://github.com/wzq10314/astrbot_plugin_gloryofkings) |
-| 读取日期 | 2026-10-08，Asia/Shanghai |
-| GitHub 快照 | [`4d4238d2c9c2c37af7007d40dd0723308c006bb4`](https://github.com/wzq10314/astrbot_plugin_gloryofkings/tree/4d4238d2c9c2c37af7007d40dd0723308c006bb4) |
-| 提交时间 | 2026-10-06 23:08:36 +08:00 |
-| 适配版版本 | README 标注 v1.0.15；不要与打包业务核心的版本混用 |
-| 打包业务核心 | `engine/upstream`；`UPSTREAM.json` 标注 `longhengmu/GloryOfKings-Plugin`、版本 `1.0.7`、提交 `2cb07250a1ff3ac0930b16c563b76f597995e4c1` |
-| 来源追踪 | [UPSTREAM.json][G0] 保存 241 个上游文件的 SHA-256；本次按清单核对 |
-| 核心请求实现 | [utils/api.js][G1]；登录见 [wechatLogin.js][G2]、[qqLogin.js][G3] |
-| 许可来源 | [项目 LICENSE][G29]、[打包上游 LICENSE][G30]；实质复制源码时保留对应 MIT 版权与许可声明 |
+| 项目         | 本次记录                                                                                                                                            |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 来源项目     | [wzq10314/astrbot_plugin_gloryofkings](https://github.com/wzq10314/astrbot_plugin_gloryofkings)                                                     |
+| 读取日期     | 2026-10-08，Asia/Shanghai                                                                                                                           |
+| GitHub 快照  | [`4d4238d2c9c2c37af7007d40dd0723308c006bb4`](https://github.com/wzq10314/astrbot_plugin_gloryofkings/tree/4d4238d2c9c2c37af7007d40dd0723308c006bb4) |
+| 提交时间     | 2026-10-06 23:08:36 +08:00                                                                                                                          |
+| 适配版版本   | README 标注 v1.0.15；不要与打包业务核心的版本混用                                                                                                   |
+| 打包业务核心 | `engine/upstream`；`UPSTREAM.json` 标注 `longhengmu/GloryOfKings-Plugin`、版本 `1.0.7`、提交 `2cb07250a1ff3ac0930b16c563b76f597995e4c1`             |
+| 来源追踪     | [UPSTREAM.json][G0] 保存 241 个上游文件的 SHA-256；本次按清单核对                                                                                   |
+| 核心请求实现 | [utils/api.js][G1]；登录见 [wechatLogin.js][G2]、[qqLogin.js][G3]                                                                                   |
+| 许可来源     | [项目 LICENSE][G29]、[打包上游 LICENSE][G30]；实质复制源码时保留对应 MIT 版权与许可声明                                                             |
 
 ### 16.2 如何理解字段与验证标记
 
@@ -635,39 +635,39 @@ Content-Type: application/json; charset=UTF-8
 
 以下 15 个业务入口都需要可用营地登录态。`J` 表示 `POST https://kohcamp.qq.com` + JSON + 第 18 节的营地鉴权头；`F` 表示 `POST https://ssl.kohsocialapp.qq.com:10001` + URL 编码表单 + 18.2 的头和公共表单字段。[请求门面][G1]
 
-| 编号 | 路径 | 协议 | 能力 / 核心入参 | 详解 |
-| --- | --- | --- | --- | --- |
-| C01 | `/game/morebattlelist` | J | 战绩分页；`friendUserId`、`option`、`lastTime` | 19.1 |
-| C02 | `/game/battledetail` | J | 单局详情；对局坐标、`targetRoleId`、`friendUserId` | 19.2 |
-| C03 | `/game/koh/profile` | J | 主页、默认角色、角色列表；`targetUserId` | 19.3 |
-| C04 | `/game/profile/herolist` | J | 生涯常用英雄；`targetUserId`、`targetRoleId` | 19.4 |
-| C05 | `/play/h5getherolist` | F | 我的英雄全表；`friendUserId` | 19.5 |
-| C06 | `/hero/getseasonusaullyherolist` | J | 英雄赛季 / 历史最高战力；`roleId`、`seasonId` | 19.6 |
-| C07 | `/gametoolbox/hero/record/pagedetails` | J + `serverId` 头 | 单英雄详情、称号、近局、战力曲线；`roleId`、`heroid` | 19.7 |
-| C08 | `/play/h5getheroskinlist` | F | 拥有皮肤、全量配置、统计；`friendUserId` | 19.8 |
-| C09 | `/gametoolbox/equip/hero/getherobestequip` | J | 英雄核心装备推荐；`heroId` | 19.9 |
-| C10 | `/gametoolbox/hero/getherofringedata` | J | 铭文组合与技能；`heroId`；响应直接为顶层数据 | 19.10 |
-| C11 | `/game/seasonpage` | J | 赛季汇总、历史赛季索引；`roleId`、`seasonId` | 19.11 |
-| C12 | `/game/getfightdata` | J | 模式 / 分路 / 统计周期的五维；`roleId` 等 | 19.12 |
-| C13 | `/hero/getdetailranklistbyid` | J | 英雄梯度榜；`rankId`、`segment`、`position` | 19.13 |
-| C14 | `/info/tv/choiceitem` | J | 大神观战池；发送空 JSON `{}` | 19.14 |
-| C15 | `/user/getcampfriends` | J | 保活查询；发送空 JSON `{}`；来源没有解析好友 schema | 19.15 |
+| 编号 | 路径                                       | 协议              | 能力 / 核心入参                                      | 详解  |
+| ---- | ------------------------------------------ | ----------------- | ---------------------------------------------------- | ----- |
+| C01  | `/game/morebattlelist`                     | J                 | 战绩分页；`friendUserId`、`option`、`lastTime`       | 19.1  |
+| C02  | `/game/battledetail`                       | J                 | 单局详情；对局坐标、`targetRoleId`、`friendUserId`   | 19.2  |
+| C03  | `/game/koh/profile`                        | J                 | 主页、默认角色、角色列表；`targetUserId`             | 19.3  |
+| C04  | `/game/profile/herolist`                   | J                 | 生涯常用英雄；`targetUserId`、`targetRoleId`         | 19.4  |
+| C05  | `/play/h5getherolist`                      | F                 | 我的英雄全表；`friendUserId`                         | 19.5  |
+| C06  | `/hero/getseasonusaullyherolist`           | J                 | 英雄赛季 / 历史最高战力；`roleId`、`seasonId`        | 19.6  |
+| C07  | `/gametoolbox/hero/record/pagedetails`     | J + `serverId` 头 | 单英雄详情、称号、近局、战力曲线；`roleId`、`heroid` | 19.7  |
+| C08  | `/play/h5getheroskinlist`                  | F                 | 拥有皮肤、全量配置、统计；`friendUserId`             | 19.8  |
+| C09  | `/gametoolbox/equip/hero/getherobestequip` | J                 | 英雄核心装备推荐；`heroId`                           | 19.9  |
+| C10  | `/gametoolbox/hero/getherofringedata`      | J                 | 铭文组合与技能；`heroId`；响应直接为顶层数据         | 19.10 |
+| C11  | `/game/seasonpage`                         | J                 | 赛季汇总、历史赛季索引；`roleId`、`seasonId`         | 19.11 |
+| C12  | `/game/getfightdata`                       | J                 | 模式 / 分路 / 统计周期的五维；`roleId` 等            | 19.12 |
+| C13  | `/hero/getdetailranklistbyid`              | J                 | 英雄梯度榜；`rankId`、`segment`、`position`          | 19.13 |
+| C14  | `/info/tv/choiceitem`                      | J                 | 大神观战池；发送空 JSON `{}`                         | 19.14 |
+| C15  | `/user/getcampfriends`                     | J                 | 保活查询；发送空 JSON `{}`；来源没有解析好友 schema  | 19.15 |
 
 这个来源没有实现原文档中的 Protobuf 昵称搜索、`allrolelistv3` 专用角色列表或 `battleanalyze/old` 对局回顾；这些能力仍参考第 3、4、9 节。来源的“按英雄查战绩”命令另有本地筛选近期列表的路径，不能当作已经掌握任意分页的远程 `historydetails` 协议。[战绩命令][G20]
 
 ### 17.2 登录、公开数据与辅助服务
 
-| 类别 | 远端 / 基址 | 内容 | 凭据 | 详解 |
-| --- | --- | --- | --- | --- |
-| 微信 / 营地登录 | `ssl.kohsocialapp.qq.com:10001`、`open.weixin.qq.com`、`long.open.weixin.qq.com` | SDK ticket、二维码、轮询、`user/login` | 扫码授权；登录前设备安全参数 | 第 20 节 |
-| QQ / 营地登录 | `openmobile.qq.com`、`ysdk.qq.com`、营地游戏域名 | 浏览器授权、YSDK 换票、`openSdk` 登录 | 同一浏览器会话、授权 code、来源签名 | 第 20 节 |
-| 官网公开数据 | `pvp.qq.com`、`apps.game.qq.com` | 4 个 JSON 表、英雄 HTML、资讯列表和正文 | 无营地登录；列表有公开签名常量 | 第 21 节 |
-| 第三方战力查询 | `www.sapi.run` | 英雄四大区称号战力门槛 | 来源客户端未发送账号凭据 | 21.7 |
-| 图像资源 | `game.gtimg.cn`、腾讯云图片 CDN、`qlogo.cn` | 英雄、皮肤、装备、技能、QQ 头像 | 公开静态资源；以响应 URL 为准 | 21.8 |
-| 观战控制服务 | 配置 `watchApiUrl` | 好友、开播、房间、停止、提示坐标、账号接收 | 本地服务；远端账号上报需配置授权 | 22.2 |
-| 营地消息服务 | 配置 `campImApiUrl` | 消息轮询、好友、发消息、连接管理 | 本地服务；远端账号上报需配置授权 | 22.3 |
-| ID 共享库 | 配置 `shareApiUrl` | 绑定查询 / 更新 / 删除、接入令牌管理 | `Bearer shareToken` 或 `X-Admin-Secret` | 23.1～23.2 |
-| 服务包分发 | 配置 `distUrl` | `watch` / `im` 包版本与下载 | `Bearer distToken` | 23.3 |
+| 类别            | 远端 / 基址                                                                      | 内容                                       | 凭据                                    | 详解       |
+| --------------- | -------------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------- | ---------- |
+| 微信 / 营地登录 | `ssl.kohsocialapp.qq.com:10001`、`open.weixin.qq.com`、`long.open.weixin.qq.com` | SDK ticket、二维码、轮询、`user/login`     | 扫码授权；登录前设备安全参数            | 第 20 节   |
+| QQ / 营地登录   | `openmobile.qq.com`、`ysdk.qq.com`、营地游戏域名                                 | 浏览器授权、YSDK 换票、`openSdk` 登录      | 同一浏览器会话、授权 code、来源签名     | 第 20 节   |
+| 官网公开数据    | `pvp.qq.com`、`apps.game.qq.com`                                                 | 4 个 JSON 表、英雄 HTML、资讯列表和正文    | 无营地登录；列表有公开签名常量          | 第 21 节   |
+| 第三方战力查询  | `www.sapi.run`                                                                   | 英雄四大区称号战力门槛                     | 来源客户端未发送账号凭据                | 21.7       |
+| 图像资源        | `game.gtimg.cn`、腾讯云图片 CDN、`qlogo.cn`                                      | 英雄、皮肤、装备、技能、QQ 头像            | 公开静态资源；以响应 URL 为准           | 21.8       |
+| 观战控制服务    | 配置 `watchApiUrl`                                                               | 好友、开播、房间、停止、提示坐标、账号接收 | 本地服务；远端账号上报需配置授权        | 22.2       |
+| 营地消息服务    | 配置 `campImApiUrl`                                                              | 消息轮询、好友、发消息、连接管理           | 本地服务；远端账号上报需配置授权        | 22.3       |
+| ID 共享库       | 配置 `shareApiUrl`                                                               | 绑定查询 / 更新 / 删除、接入令牌管理       | `Bearer shareToken` 或 `X-Admin-Secret` | 23.1～23.2 |
+| 服务包分发      | 配置 `distUrl`                                                                   | `watch` / `im` 包版本与下载                | `Bearer distToken`                      | 23.3       |
 
 ## 18. 营地公共请求协议与错误处理
 
@@ -675,28 +675,28 @@ Content-Type: application/json; charset=UTF-8
 
 来源发送 `Content-Type: application/json; charset=UTF-8`，请求体通过 `JSON.stringify` 构造。下表列出来源默认头；每个账号可覆盖客户端参数，不能把快照默认值当成腾讯永久要求。[签名与请求头][G1]
 
-| 请求头 | 来源默认 / 取值 |
-| --- | --- |
-| `Host` | `kohcamp.qq.com` |
-| `User-Agent` | `okhttp/4.9.1` |
-| `Content-Encrypt`、`Accept-Encrypt` | 空串 |
-| `NOENCRYPT`、`X-Client-Proto` | `1`、`https`；仍须按响应头判断加密 |
-| `x-log-uid` | 账号已有值或宿主生成的会话值 |
-| `traceparent` | 已有值或 `00-<32位hex>-<16位hex>-01` |
-| `istrpcrequest` | `true` |
-| `cchannelid` | `10003391` |
-| `cclientversioncode`、`cclientversionname` | `2057957801`、`10.111.0323` |
-| `ccurrentgameid`、`cgameid`、`gameid` | `20001` |
-| `cgzip`、`cisarm64`、`csupportarm64` | `1`、`true`、`true` |
-| `crand` | 当前毫秒时间戳字符串 |
-| `csystem`、`csystemversioncode`、`csystemversionname` | `android`、`34`、`14` |
-| `cpuhardware` | `qcom` |
-| `tinkerid` | `2057957801_64_0` |
-| `gameareaid`、`gameusersex`、`kohdimgender` | `1`、`1`、`2` |
-| `token`、`userid` | 本次请求的登录账号 token 与营地账号 ID |
-| `openid`、`gameopenid`、`gameroleid`、`gameserverid` | 账号保存了对应值时发送 |
-| `encodeParam` | 有 `userKey` 时发送 XXTEA 安全参数 |
-| `specialEncodeParam` | 无 `userKey` 时来源尝试 RSA 安全参数；不表示可匿名读取游戏数据 |
+| 请求头                                                | 来源默认 / 取值                                                |
+| ----------------------------------------------------- | -------------------------------------------------------------- |
+| `Host`                                                | `kohcamp.qq.com`                                               |
+| `User-Agent`                                          | `okhttp/4.9.1`                                                 |
+| `Content-Encrypt`、`Accept-Encrypt`                   | 空串                                                           |
+| `NOENCRYPT`、`X-Client-Proto`                         | `1`、`https`；仍须按响应头判断加密                             |
+| `x-log-uid`                                           | 账号已有值或宿主生成的会话值                                   |
+| `traceparent`                                         | 已有值或 `00-<32位hex>-<16位hex>-01`                           |
+| `istrpcrequest`                                       | `true`                                                         |
+| `cchannelid`                                          | `10003391`                                                     |
+| `cclientversioncode`、`cclientversionname`            | `2057957801`、`10.111.0323`                                    |
+| `ccurrentgameid`、`cgameid`、`gameid`                 | `20001`                                                        |
+| `cgzip`、`cisarm64`、`csupportarm64`                  | `1`、`true`、`true`                                            |
+| `crand`                                               | 当前毫秒时间戳字符串                                           |
+| `csystem`、`csystemversioncode`、`csystemversionname` | `android`、`34`、`14`                                          |
+| `cpuhardware`                                         | `qcom`                                                         |
+| `tinkerid`                                            | `2057957801_64_0`                                              |
+| `gameareaid`、`gameusersex`、`kohdimgender`           | `1`、`1`、`2`                                                  |
+| `token`、`userid`                                     | 本次请求的登录账号 token 与营地账号 ID                         |
+| `openid`、`gameopenid`、`gameroleid`、`gameserverid`  | 账号保存了对应值时发送                                         |
+| `encodeParam`                                         | 有 `userKey` 时发送 XXTEA 安全参数                             |
+| `specialEncodeParam`                                  | 无 `userKey` 时来源尝试 RSA 安全参数；不表示可匿名读取游戏数据 |
 
 HTTP 头名称本身不区分大小写，但私有字段拼写和表单 / JSON 键名必须保持来源协议。`serverId` 是 C07 额外的目标区服请求头，与公共 `gameserverid` 登录账号区服头分开记录。
 
@@ -720,13 +720,13 @@ kohdimgender: 2
 
 公共表单字段也必须发送，不能只提交业务入参：
 
-| 字段组 | 内容 |
-| --- | --- |
-| 客户端 | `cChannelId`、`cClientVersionCode`、`cClientVersionName`、`cCurrentGameId`、`cGameId`、`cGzip`、`cIsArm64`、`cSupportArm64`、`cSystem`、`cSystemVersionCode`、`cSystemVersionName`、`cpuHardware`、`tinkerId`；默认值同 18.1 |
-| 时间 | `cRand` = 当前毫秒时间戳字符串 |
-| 游戏 / 账号 | `gameAreaId`、`gameId`、`gameUserSex`、`gameRoleId`、`gameServerId`、`openId`、`token`、`userId` |
-| 缺失值 | 来源把 `gameRoleId` / `gameServerId` 缺失值设为字符串 `"0"`；`openId` 缺失时使用宿主会话值，这是来源回退策略，非本次确认的服务端规则 |
-| 业务扩展 | C05 / C08 加入 `noCache="0"`、`recommendPrivacy="0"`、`friendUserId=<TARGET_CAMP_ID>` |
+| 字段组      | 内容                                                                                                                                                                                                                         |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 客户端      | `cChannelId`、`cClientVersionCode`、`cClientVersionName`、`cCurrentGameId`、`cGameId`、`cGzip`、`cIsArm64`、`cSupportArm64`、`cSystem`、`cSystemVersionCode`、`cSystemVersionName`、`cpuHardware`、`tinkerId`；默认值同 18.1 |
+| 时间        | `cRand` = 当前毫秒时间戳字符串                                                                                                                                                                                               |
+| 游戏 / 账号 | `gameAreaId`、`gameId`、`gameUserSex`、`gameRoleId`、`gameServerId`、`openId`、`token`、`userId`                                                                                                                             |
+| 缺失值      | 来源把 `gameRoleId` / `gameServerId` 缺失值设为字符串 `"0"`；`openId` 缺失时使用宿主会话值，这是来源回退策略，非本次确认的服务端规则                                                                                         |
+| 业务扩展    | C05 / C08 加入 `noCache="0"`、`recommendPrivacy="0"`、`friendUserId=<TARGET_CAMP_ID>`                                                                                                                                        |
 
 所有字段经字符串化和 `URLSearchParams` 编码。此传输路径没有构造 `encodeParam`，也没有主站的完整设备请求头；响应直接解析 JSON，不走主站 XXTEA 读取器。切换候选账号时，头与体中的 `token` / `userId` / 账号游戏字段必须重建。[表单实现][G1]
 
@@ -739,16 +739,16 @@ kohdimgender: 2
 5. 先检查 `encryptparamerr`；空体时从响应头 `returncode` / `returnmsg` 还原业务结果，`returnmsg` 按 URI 编码文本解码。HTTP 成功、业务成功、可用数据分别判断。
 6. 并非所有接口有 `returnCode/data`：C10 顶层直接为数据；表单接口缺少 `returnCode` 时来源也接受，业务代码再检查所需结构。
 
-| 信号 | 来源处理与语义范围 | 本插件接入时的注意点 |
-| --- | --- | --- |
-| `returnCode=0` | 来源营地业务成功 | 仍检查空壳、角色、列表与隐私字段 |
-| `returnCode=-30107` | 账号频控 | 不把频控当登录失效；不要立刻重复同号请求 |
-| `returnCode=-30003` 或确定的“登录态失效 / 请重新登录” | 来源将账号标记失效 | 与客户端配置错误、疑似鉴权文案分开 |
-| `encryptparamerr` | 来源按安全参数 / 客户端配置错误处理 | 不能据此认定整个账号池失效；本插件当前将其归入 `auth`，实现扩展前应单独评估 |
-| `/game/koh/profile` 的 `-10107` | 来源标记隐藏主页 | 不泛化为所有接口均不可读 |
-| `/game/seasonpage` 的 `-30408` | 上游记录为赛季表现隐私 | 主页与战绩仍可能可读 |
-| `/game/getfightdata` 的 `-10110` | 上游记录为赛季表现隐私 | 不能把降级近期统计标成完整赛季统计 |
-| `invisible`、`isHideMatch`、`isHideMatchDetail` 或角色 `hideMatch` | 不同数据路径的隐藏标记 | 各字段按所在接口读取，不能只用“列表为空”判断隐藏 |
+| 信号                                                               | 来源处理与语义范围                  | 本插件接入时的注意点                                                        |
+| ------------------------------------------------------------------ | ----------------------------------- | --------------------------------------------------------------------------- |
+| `returnCode=0`                                                     | 来源营地业务成功                    | 仍检查空壳、角色、列表与隐私字段                                            |
+| `returnCode=-30107`                                                | 账号频控                            | 不把频控当登录失效；不要立刻重复同号请求                                    |
+| `returnCode=-30003` 或确定的“登录态失效 / 请重新登录”              | 来源将账号标记失效                  | 与客户端配置错误、疑似鉴权文案分开                                          |
+| `encryptparamerr`                                                  | 来源按安全参数 / 客户端配置错误处理 | 不能据此认定整个账号池失效；本插件当前将其归入 `auth`，实现扩展前应单独评估 |
+| `/game/koh/profile` 的 `-10107`                                    | 来源标记隐藏主页                    | 不泛化为所有接口均不可读                                                    |
+| `/game/seasonpage` 的 `-30408`                                     | 上游记录为赛季表现隐私              | 主页与战绩仍可能可读                                                        |
+| `/game/getfightdata` 的 `-10110`                                   | 上游记录为赛季表现隐私              | 不能把降级近期统计标成完整赛季统计                                          |
+| `invisible`、`isHideMatch`、`isHideMatchDetail` 或角色 `hideMatch` | 不同数据路径的隐藏标记              | 各字段按所在接口读取，不能只用“列表为空”判断隐藏                            |
 
 来源按账号组织请求队列，最小请求间隔 `1200ms`，请求发出后的超时 `10000ms`，普通网络重试最多 2 次并使用指数退避；命中频控后冷却 `12h`。这些是来源项目策略 / 经验，**不是腾讯公布的限额或解封时间**。公开资料请求另用 `12000ms` 超时，不占营地队列。我们目前的分页间隔与冷却配置不同，文档记录不代表修改本插件运行策略。[传输层][G1]、[隐私降级][G11]
 
@@ -761,17 +761,23 @@ kohdimgender: 2
 **请求 J**，来源 `getMoreBattleList`：
 
 ```json
-{"lastTime":0,"recommendPrivacy":0,"apiVersion":5,"friendUserId":"<TARGET_CAMP_ID>","option":0}
+{
+  "lastTime": 0,
+  "recommendPrivacy": 0,
+  "apiVersion": 5,
+  "friendUserId": "<TARGET_CAMP_ID>",
+  "option": 0
+}
 ```
 
 | `option` | 上游注释 / 命令映射 |
-| --- | --- |
-| `0` | 全部 |
-| `1` | 5v5 排位 |
-| `16` | 10v10 排位 |
-| `2` | 5v5 标准 |
-| `4` | 巅峰赛 |
-| `19` | 2v2 巅峰 |
+| -------- | ------------------- |
+| `0`      | 全部                |
+| `1`      | 5v5 排位            |
+| `16`     | 10v10 排位          |
+| `2`      | 5v5 标准            |
+| `4`      | 巅峰赛              |
+| `19`     | 2v2 巅峰            |
 
 来源读取 `data.list[]`、`data.hasMore`、`data.lastTime`、`data.options`、`data.invisible` / `data.invisDes`；列表项消费 `gameSeq`、`gameSvrId`、`relaySvrId`、`battleType`、`heroId` / `heroIcon`、`mapName`、`gametime` / `dtEventTime`、`usedtime`、`gameresult`、`killcnt`、`deadcnt`、`assistcnt`、`gradeGame`、MVP / 评价等字段。部分展示读取的是来源本地归一化结果，接入仍保留原始字段。
 
@@ -784,26 +790,34 @@ kohdimgender: 2
 **请求 J**，来源 `getBattledetail`：
 
 ```json
-{"recommendPrivacy":0,"battleType":32,"gameSvr":"<GAME_SVR_ID>","relaySvr":"<RELAY_SVR_ID>","targetRoleId":"<ROLE_ID>","gameSeq":"<GAME_SEQ>","friendUserId":"<TARGET_CAMP_ID>"}
+{
+  "recommendPrivacy": 0,
+  "battleType": 32,
+  "gameSvr": "<GAME_SVR_ID>",
+  "relaySvr": "<RELAY_SVR_ID>",
+  "targetRoleId": "<ROLE_ID>",
+  "gameSeq": "<GAME_SEQ>",
+  "friendUserId": "<TARGET_CAMP_ID>"
+}
 ```
 
 `battleType=32` 只是模板值，实际使用列表返回值。`gameSvr` / `relaySvr` 分别来自列表的 `gameSvrId` / `relaySvrId`；来源详情调用从列表 `battleDetailUrl` 的 `toAppRoleId` 参数提取 `targetRoleId`。它表示目标玩家角色，不能填登录账号角色；链接缺字段时应显式补全或报错，不把缺失值当有效角色。
 
 相比本插件现有请求，来源额外发送 `friendUserId`。未证明它对所有详情请求都是必填。这个来源的详情消费路径为：
 
-| 路径 | 源码消费字段 / 含义 |
-| --- | --- |
-| `data.head` | `acntCamp`、`gameResult`、`roleId`、`heroName` 等；缺 `acntCamp` 时来源认为详情暂不可用 |
-| `data.redTeam` / `blueTeam` | 队伍汇总、`acntCamp`、`pickHeros[]`；不能默认每队固定 5 个玩家 |
-| `data.redRoles[]` / `blueRoles[]` | 玩家集合，隐私或对局刚结束时可能残缺 |
-| 玩家 `basicInfo` | `isMe`、`roleId`；定位被查询玩家 |
-| 玩家 `battleRecords` | `usedHero.heroName/heroIcon`、`usedSkin`、`skill.skillIcon`、`finalEquips[]` |
-| 玩家 `battleStats` | `gradeGame`、`mvp`、`evaluateIconV3/V2`、`evaluateIcon`、`fightPower`、`addFightPower` |
-| 玩家 `battleStats` 伤害 | `totalHeroHurtCnt` 对英雄伤害、`totalHurtCnt` 总伤害、`totalBeheroHurtCnt` 对英雄承伤；不能混用 |
-| 玩家 `battleStats` 补充 | `joinGamePercent`（来源按比例乘 100）、`ctrlTime`（来源按秒展示）、`killSoldier` |
-| 玩家五维评级 | `sabchurthero`、`sabcbattle`、`sabcgrow`、`sabcsurvive`、`sabcKDA`；来源读取小写 `s/a/b/c` |
-| 玩家 `dataBehaviorV2[]` | `title`、`icon`、`dataCounts[]`；项目内 `name`、`data`、`dataNote`、`dataHighlight`、`dataNoteHighlight` |
-| 全场最高标志 | `maxKill`、`maxHurt`、`maxTower`、`maxMoney`、`maxHeroHurt`、`maxBeheroHurt`；来源按数值真假读取 |
+| 路径                              | 源码消费字段 / 含义                                                                                      |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `data.head`                       | `acntCamp`、`gameResult`、`roleId`、`heroName` 等；缺 `acntCamp` 时来源认为详情暂不可用                  |
+| `data.redTeam` / `blueTeam`       | 队伍汇总、`acntCamp`、`pickHeros[]`；不能默认每队固定 5 个玩家                                           |
+| `data.redRoles[]` / `blueRoles[]` | 玩家集合，隐私或对局刚结束时可能残缺                                                                     |
+| 玩家 `basicInfo`                  | `isMe`、`roleId`；定位被查询玩家                                                                         |
+| 玩家 `battleRecords`              | `usedHero.heroName/heroIcon`、`usedSkin`、`skill.skillIcon`、`finalEquips[]`                             |
+| 玩家 `battleStats`                | `gradeGame`、`mvp`、`evaluateIconV3/V2`、`evaluateIcon`、`fightPower`、`addFightPower`                   |
+| 玩家 `battleStats` 伤害           | `totalHeroHurtCnt` 对英雄伤害、`totalHurtCnt` 总伤害、`totalBeheroHurtCnt` 对英雄承伤；不能混用          |
+| 玩家 `battleStats` 补充           | `joinGamePercent`（来源按比例乘 100）、`ctrlTime`（来源按秒展示）、`killSoldier`                         |
+| 玩家五维评级                      | `sabchurthero`、`sabcbattle`、`sabcgrow`、`sabcsurvive`、`sabcKDA`；来源读取小写 `s/a/b/c`               |
+| 玩家 `dataBehaviorV2[]`           | `title`、`icon`、`dataCounts[]`；项目内 `name`、`data`、`dataNote`、`dataHighlight`、`dataNoteHighlight` |
+| 全场最高标志                      | `maxKill`、`maxHurt`、`maxTower`、`maxMoney`、`maxHeroHurt`、`maxBeheroHurt`；来源按数值真假读取         |
 
 `dataNote` 在来源注释里是排名百分位文字，不是统计值 `data` 的单位。队伍缺人时，源码只以实际返回玩家计算输出占比；这种派生占比不等于完整队伍的远端原始统计。详情字段不足应降级，不能补造玩家或把缺失统计当实测 0。更多旧版线索见第 8 节。[请求][G1]、[详情展示][G21]
 
@@ -812,21 +826,29 @@ kohdimgender: 2
 **请求 J**，来源 `getProfile`：
 
 ```json
-{"targetUserId":"<TARGET_CAMP_ID>","targetRoleId":"0","resVersion":"3","recommendPrivacy":"0","apiVersion":"2"}
+{
+  "targetUserId": "<TARGET_CAMP_ID>",
+  "targetRoleId": "0",
+  "resVersion": "3",
+  "recommendPrivacy": "0",
+  "apiVersion": "2"
+}
 ```
 
 来源读取 `data.targetRoleId`，再用字符串比较在 `data.roleList[]` 中找到同 ID 的角色；角色包含 `roleId`、`roleName`、`roleIcon`、`areaName`、`gameLevel`、`gameOnline`、`serverId` 等消费字段。主页摘要位于 `data.head.mods[]`，按 `modId` 选择模块，其段位 / 巅峰资源不是固定在角色对象里。
 
-| `modId` | 来源读取 / 展示 |
-| --- | --- |
-| `701` / `708` | 5v5 / 10v10 段位：`name`，`param1` JSON 内 `rankingStar` |
-| `702` | 巅峰：`content` 数值 |
-| `304` | 战斗力：`content` 数值 |
-| `401` / `408` / `409` | 总场次 / MVP / 胜率：`content`；胜率可能为带 `%` 的文本 |
-| `201` / `202` | 英雄 / 皮肤数量：`content` 为类似“拥有数/总数”的文本 |
-| `601` | 当前最高战力英雄：`param1` JSON 的 `heroId`、`heroFightPower`、`playNum`、`winRate`；缺战力时来源回退 `content` |
+| `modId`               | 来源读取 / 展示                                                                                                 |
+| --------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `701` / `708`         | 5v5 / 10v10 段位：`name`，`param1` JSON 内 `rankingStar`                                                        |
+| `702`                 | 巅峰：`content` 数值                                                                                            |
+| `304`                 | 战斗力：`content` 数值                                                                                          |
+| `401` / `408` / `409` | 总场次 / MVP / 胜率：`content`；胜率可能为带 `%` 的文本                                                         |
+| `201` / `202`         | 英雄 / 皮肤数量：`content` 为类似“拥有数/总数”的文本                                                            |
+| `601`                 | 当前最高战力英雄：`param1` JSON 的 `heroId`、`heroFightPower`、`playNum`、`winRate`；缺战力时来源回退 `content` |
 
 `param1` 在这些模块中是需要另做 JSON 解析的字符串；模块可能缺失，以上映射来自来源读取 / 注释，本次未用登录态复验。[主页摘要][G19]
+
+当前资料模型补充 `game_online`（0 / 1 / 2 / null）与 `game_status`（离线 / 在线 / 游戏中 / 未知），WebUI 与资料指令图片、文本共用该模型。按 `targetRoleId` 匹配角色读取 `gameOnline`，合法的数值零保留为离线，字段缺失或未知码不默认补零。2026-10-08 使用已保存 QQ 登录态查询 `489048724`，真实响应返回整数 `gameOnline=0`，并包含 `onlineTime`、`offlineTime` 与空 `battleId`；在线 / 游戏中映射依照来源代码和用户指定规则，未进行实际上下线切换测试。
 
 后续链路为：营地 ID → `targetRoleId` → 对应角色的 `serverId` / `roleName` → C07 / C11 / C12。`targetRoleId="0"` 是来源默认角色查询；有角色列表不等于已经验证任意跨区战绩切换。在线状态和当前对局线索按资料响应消费，不是好友观战取流协议。
 
@@ -835,17 +857,21 @@ kohdimgender: 2
 **请求 J**，来源 `getProfileHeroList`：
 
 ```json
-{"targetUserId":"<TARGET_CAMP_ID>","targetRoleId":"<ROLE_ID>","recommendPrivacy":0}
+{
+  "targetUserId": "<TARGET_CAMP_ID>",
+  "targetRoleId": "<ROLE_ID>",
+  "recommendPrivacy": 0
+}
 ```
 
 这个来源使用主站 JSON；第 7 节旧来源使用表单，两套已实现请求不能合并成“唯一编码”。来源读取 `data.heroList[]`：
 
-| 路径 | 源码用途 |
-| --- | --- |
-| `basicInfo.heroId`、`basicInfo.title` | 英雄编号和名称 |
+| 路径                                     | 源码用途                                 |
+| ---------------------------------------- | ---------------------------------------- |
+| `basicInfo.heroId`、`basicInfo.title`    | 英雄编号和名称                           |
 | `basicInfo.playNum`、`basicInfo.winRate` | 生涯场次与胜率展示；胜率直接按字符串展示 |
-| `basicInfo.heroFightPower` | 战力排序 / 展示 |
-| `honorTitle.type`、`honorTitle.desc` | 荣耀称号 |
+| `basicInfo.heroFightPower`               | 战力排序 / 展示                          |
+| `honorTitle.type`、`honorTitle.desc`     | 荣耀称号                                 |
 
 来源把它作为赛季常用英雄缺失时的生涯榜降级数据；C05 的字段布局与统计口径不同，不直接拼接场次。[请求][G1]、[英雄榜消费][G8]
 
@@ -859,15 +885,15 @@ noCache=0&recommendPrivacy=0&friendUserId=<TARGET_CAMP_ID>
 
 响应源码读取：`data.heroList[]`、`data.hasData.heroNum`。
 
-| 英雄字段 | 用途 / 类型处理 |
-| --- | --- |
-| `heroId`、`name` | 英雄编号、名称 |
-| `playNum`、`winNum` | 场次、胜场；来源用 `Number` 转换 |
-| `winRate` | 来源注明类似 `"53.8%"` 的已格式化字符串，直接展示 |
-| `heroFightPower` | 原始战力列 |
-| `skilledLevel` | 熟练度等级；来源只确认等级 5～8 的文案 |
-| `heroTypes` / `heroType` | 定位数组 / 回退文字 |
-| `url` / `heroIcon` | 图片候选 |
+| 英雄字段                 | 用途 / 类型处理                                   |
+| ------------------------ | ------------------------------------------------- |
+| `heroId`、`name`         | 英雄编号、名称                                    |
+| `playNum`、`winNum`      | 场次、胜场；来源用 `Number` 转换                  |
+| `winRate`                | 来源注明类似 `"53.8%"` 的已格式化字符串，直接展示 |
+| `heroFightPower`         | 原始战力列                                        |
+| `skilledLevel`           | 熟练度等级；来源只确认等级 5～8 的文案            |
+| `heroTypes` / `heroType` | 定位数组 / 回退文字                               |
+| `url` / `heroIcon`       | 图片候选                                          |
 
 来源注释对 `heroFightPower` 的“当前 / 最高”描述存在冲突。本次不确认该字段等于历史最高；该项目最终展示历史最高时实际补取 C06 的 `maxHeroFightPower`，用 `heroId` 关联，只从 C06 补战力和称号，保留 C05 的场次 / 胜率。零场英雄被来源展示层过滤，不能因此宣称服务端只返回玩过的英雄。[请求][G1]、[我的英雄消费][G9]
 
@@ -876,7 +902,7 @@ noCache=0&recommendPrivacy=0&friendUserId=<TARGET_CAMP_ID>
 **请求 J**，来源 `getSeasonUsuallyHeroList`：
 
 ```json
-{"recommendPrivacy":0,"seasonId":0,"roleId":"<ROLE_ID>"}
+{ "recommendPrivacy": 0, "seasonId": 0, "roleId": "<ROLE_ID>" }
 ```
 
 路径里的 **`usaully` 就是源码中的实际拼写**。上游注释称本接口 `seasonId=0` 为历史赛季，`-1` 为当前赛季；更早负数没有得到有效数据。本次未实测，不把这些值扩展成完整分页或历史赛季枚举。它与 C11 的 `seasonId=0` 含义不能直接等同。
@@ -892,7 +918,7 @@ serverId: <TARGET_SERVER_ID>
 ```
 
 ```json
-{"roleId":"<ROLE_ID>","heroid":109,"roleName":"<ROLE_NAME>","h5Get":1}
+{ "roleId": "<ROLE_ID>", "heroid": 109, "roleName": "<ROLE_NAME>", "h5Get": 1 }
 ```
 
 `109` 是示例英雄编号，实际从英雄表选择。源码对该入口特别注明：
@@ -904,16 +930,16 @@ serverId: <TARGET_SERVER_ID>
 
 响应 `data` 的消费字段：
 
-| 路径 | 字段 / 用途 |
-| --- | --- |
-| `heroInfo` | `SzTitle`、`SzAlias`、`SzHeroType`、`SzBranchRoad`、`newSzHeroPic` / `SzHeroPic`、`skilledTitle` |
-| `heroInfo.winNum`、`failNum` | 源码将二者相加计算场次和胜率；统计周期不可只凭字段名确认 |
-| `heroInfo.bestCount`、`goldCount`、`silverCount`、`mvpCount`、`avgGrade` | 荣誉与平均分展示；上游按近一个月荣誉解释，待复验 |
-| `medalList[]` | `UserMedalInfo`、`TitleType`；空数组表示本次未读到称号，不一定是接口失败 |
-| `powerData[]` | 日期键实际叫 **`data`**、数值键 `value`；源码同日期取最后一点用于展示；上游声称覆盖近 30 天 |
-| `avgPerformance` | `hurhero`、`survive`、`kda`、`battle`、`grow`；来源按 0～100 画雷达 |
-| `zjList[]` | `mapName`、`gametime`、`usedtime`、`gameresult`、KDA、`mvpcnt` / `losemvp`、`grade`、评价图片；上游声称近期 5 场 |
-| `isHideMatchDetail`、`isHideMatch` | 来源合并为详情隐藏标记 |
+| 路径                                                                     | 字段 / 用途                                                                                                      |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `heroInfo`                                                               | `SzTitle`、`SzAlias`、`SzHeroType`、`SzBranchRoad`、`newSzHeroPic` / `SzHeroPic`、`skilledTitle`                 |
+| `heroInfo.winNum`、`failNum`                                             | 源码将二者相加计算场次和胜率；统计周期不可只凭字段名确认                                                         |
+| `heroInfo.bestCount`、`goldCount`、`silverCount`、`mvpCount`、`avgGrade` | 荣誉与平均分展示；上游按近一个月荣誉解释，待复验                                                                 |
+| `medalList[]`                                                            | `UserMedalInfo`、`TitleType`；空数组表示本次未读到称号，不一定是接口失败                                         |
+| `powerData[]`                                                            | 日期键实际叫 **`data`**、数值键 `value`；源码同日期取最后一点用于展示；上游声称覆盖近 30 天                      |
+| `avgPerformance`                                                         | `hurhero`、`survive`、`kda`、`battle`、`grow`；来源按 0～100 画雷达                                              |
+| `zjList[]`                                                               | `mapName`、`gametime`、`usedtime`、`gameresult`、KDA、`mvpcnt` / `losemvp`、`grade`、评价图片；上游声称近期 5 场 |
+| `isHideMatchDetail`、`isHideMatch`                                       | 来源合并为详情隐藏标记                                                                                           |
 
 单场五维拼写 `hurthero` 与平均五维 `hurhero` 不同；本接口使用百分制展示，C11 / C12 使用来源另一套雷达量纲。`zjList` 不能作为完整英雄历史分页；签名图片 URL 与资源哈希也不一定能直接当普通图片地址下载。[请求][G1]、[字段消费][G4]、[称号消费][G5]
 
@@ -921,14 +947,14 @@ serverId: <TARGET_SERVER_ID>
 
 **请求 F**，来源 `getSkinList`，业务表单同 C05。响应消费层兼容 `response.data` 或顶层本体：
 
-| 路径 | 源码读取字段 / 意义 |
-| --- | --- |
-| `skinCountInfo` | `owned`、`totalSkinNum`、`notForSell`、`totalValue`；计数 / 估值摘要，金额单位未在本次确认 |
-| `heroSkinList[]` | `skinId`、`iBuy`、`szClass`；混有展示项，不能把列表长度当拥有数量 |
-| `heroSkinConfList` | 按皮肤 ID 索引的全量配置对象；不是数组 |
-| 配置条目 | `iSkinId`、`szTitle`、`szHeroTitle`、`classTypeName`、`classLabel`、`szLargeIcon`、`bigCover`、`szSmallIcon` |
-| 价格 / 估值 | `iPrice` 为来源使用的点券原价；`skin_worth` 为来源使用的综合估值，二者不能直接视为同一量纲 |
-| 原皮判定 | 来源按 `Number(isHidden) === 1` 过滤经典原皮；不推广为所有隐藏类型的正式枚举 |
+| 路径               | 源码读取字段 / 意义                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `skinCountInfo`    | `owned`、`totalSkinNum`、`notForSell`、`totalValue`；计数 / 估值摘要，金额单位未在本次确认                   |
+| `heroSkinList[]`   | `skinId`、`iBuy`、`szClass`；混有展示项，不能把列表长度当拥有数量                                            |
+| `heroSkinConfList` | 按皮肤 ID 索引的全量配置对象；不是数组                                                                       |
+| 配置条目           | `iSkinId`、`szTitle`、`szHeroTitle`、`classTypeName`、`classLabel`、`szLargeIcon`、`bigCover`、`szSmallIcon` |
+| 价格 / 估值        | `iPrice` 为来源使用的点券原价；`skin_worth` 为来源使用的综合估值，二者不能直接视为同一量纲                   |
+| 原皮判定           | 来源按 `Number(isHidden) === 1` 过滤经典原皮；不推广为所有隐藏类型的正式枚举                                 |
 
 来源判定“拥有”的条件是 **存在 `iBuy` 键且 `szClass != null`**，不是 `Boolean(iBuy)`；需要以真实样本对 `skinCountInfo.owned` 复核。`szClass` 有前导空格和全角加号，展示前规范化。缺皮肤按全量配置减拥有集合，不能把官网售卖皮肤总表当账号拥有表。
 
@@ -939,7 +965,7 @@ serverId: <TARGET_SERVER_ID>
 **请求 J**，来源 `getHeroBestEquip`：
 
 ```json
-{"heroId":109}
+{ "heroId": 109 }
 ```
 
 响应读取 `data.list[]`：`equipId`、`szTitle`、`szIcon`、`szCate`、`szMoney`、`descLabel`、`winRate`、`showRate`；源码注释另提到 `szAttr`。`winRate` / `showRate` 按小数比例乘 100，`szMoney` 被数值化，单位仍按接口样本核对。
@@ -965,20 +991,20 @@ root.RuneSetList[]
 **请求 J**，来源 `getSeasonpage`：
 
 ```json
-{"recommendPrivacy":0,"seasonId":0,"roleId":"<ROLE_ID>"}
+{ "recommendPrivacy": 0, "seasonId": 0, "roleId": "<ROLE_ID>" }
 ```
 
 方法允许 `extraBody` 覆盖，但来源没有据此证明任意新参数受支持。先请求 `seasonId=0` 取得 `data.historyList[]`，再根据条目的 `seasonName` 选择实际 `seasonId` 请求一次。**赛季 ID 不一定等于 S 后面的数字**，不要把 S44 自动转换为 44。
 
-| 路径 | 消费字段 / 用途 |
-| --- | --- |
-| `historyList[]` | `seasonId`、`seasonName`、`startTime`、`endTime`、`rankInfo`、`masterInfo`；赛季选择与汇总 |
-| `headCard` | `gameCnt`、`winRate` 等赛季头部统计 |
-| `battleStats` | `hurtHero`、`survive`、`battle`、`grow`、`kda`；来源画五维，渲染归一化上限取 12000 |
-| `behavior.rankInfo` / `behavior.masterInfo` | `branches[]`、`heros[]`、`gameTrend[]` 等模式统计 |
-| `branches[]` | `branchName`、`branchType`、`winNum`、`loseNum`、`winRate`、`gameCnt` |
-| `heros[]` | `heroId`、`heroName`、`heroIcon` / `heroLandscapeIcon`、`gameCnt`、`winRate`、`heroFightPower`、`honorTitle` |
-| `rankInfo.gameTrend[]` | `time`、`totalRankStar`、`stars` 等趋势字段；来源按赛季时间窗过滤 |
+| 路径                                        | 消费字段 / 用途                                                                                              |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `historyList[]`                             | `seasonId`、`seasonName`、`startTime`、`endTime`、`rankInfo`、`masterInfo`；赛季选择与汇总                   |
+| `headCard`                                  | `gameCnt`、`winRate` 等赛季头部统计                                                                          |
+| `battleStats`                               | `hurtHero`、`survive`、`battle`、`grow`、`kda`；来源画五维，渲染归一化上限取 12000                           |
+| `behavior.rankInfo` / `behavior.masterInfo` | `branches[]`、`heros[]`、`gameTrend[]` 等模式统计                                                            |
+| `branches[]`                                | `branchName`、`branchType`、`winNum`、`loseNum`、`winRate`、`gameCnt`                                        |
+| `heros[]`                                   | `heroId`、`heroName`、`heroIcon` / `heroLandscapeIcon`、`gameCnt`、`winRate`、`heroFightPower`、`honorTitle` |
+| `rankInfo.gameTrend[]`                      | `time`、`totalRankStar`、`stars` 等趋势字段；来源按赛季时间窗过滤                                            |
 
 来源指出 `seasonId=0` 的历史摘要可能没有英雄战力 / 称号，具体赛季页才有。趋势可能跨赛季；历史赛季也可能缺趋势和五维。源码的“12000 上限”是展示归一化策略，不是已取得的腾讯单位定义。[赛季表现][G13]、[常用英雄二跳][G8]、[巅峰表现][G14]
 
@@ -987,15 +1013,24 @@ root.RuneSetList[]
 **请求 J**，来源 `getFightData`：
 
 ```json
-{"recommendPrivacy":0,"dateType":2,"roleId":"<ROLE_ID>","roleFriendId":0,"branchType":0,"source":1,"gameBattleType":10,"card":0}
+{
+  "recommendPrivacy": 0,
+  "dateType": 2,
+  "roleId": "<ROLE_ID>",
+  "roleFriendId": 0,
+  "branchType": 0,
+  "source": 1,
+  "gameBattleType": 10,
+  "card": 0
+}
 ```
 
-| 参数 | 来源定义 / 默认 |
-| --- | --- |
-| `dateType` | `1` 近 30 场、`2` 近 30 天；默认 2 |
-| `gameBattleType` | `10` 巅峰、`2` 5v5、`3` 排位；默认 10 |
-| `branchType` | `0` 全部、`1` 对抗、`2` 中路、`3` 发育、`4` 打野、`5` 游走 |
-| 其他字段 | 固定 `roleFriendId=0`、`source=1`、`card=0`、`recommendPrivacy=0` |
+| 参数             | 来源定义 / 默认                                                   |
+| ---------------- | ----------------------------------------------------------------- |
+| `dateType`       | `1` 近 30 场、`2` 近 30 天；默认 2                                |
+| `gameBattleType` | `10` 巅峰、`2` 5v5、`3` 排位；默认 10                             |
+| `branchType`     | `0` 全部、`1` 对抗、`2` 中路、`3` 发育、`4` 打野、`5` 游走        |
+| 其他字段         | 固定 `roleFriendId=0`、`source=1`、`card=0`、`recommendPrivacy=0` |
 
 源码读取 `data.battleDataSelf` 的 `winNum`、`loseNum`、`winRate`、`avgScore`、`hurtHero`、`survive`、`battle`、`grow`、`kda`；`winRate` 有字符串展示路径，缺失时来源用胜负场重算。雷达按来源 12000 上限展示；`avgScore` 不应直接当 C07 的平均分同一制度。
 
@@ -1006,14 +1041,20 @@ root.RuneSetList[]
 **请求 J**，来源 `getdetailranklistbyid`：
 
 ```json
-{"bottomTab":"","rankId":0,"segment":3,"position":0,"recommendPrivacy":0}
+{
+  "bottomTab": "",
+  "rankId": 0,
+  "segment": 3,
+  "position": 0,
+  "recommendPrivacy": 0
+}
 ```
 
-| 参数 | 来源映射 |
-| --- | --- |
-| `segment` | `1` 所有段位、`3` 巅峰 1350+、`4` 顶端排位、`5` 赛事；默认 3 |
-| `position` | `0` 全部、`1` 对抗、`2` 中路、`3` 发育、`4` 游走、`5` 打野 |
-| `rankId` / `bottomTab` | 默认 `0` / 空串；其他取值未实现 |
+| 参数                   | 来源映射                                                     |
+| ---------------------- | ------------------------------------------------------------ |
+| `segment`              | `1` 所有段位、`3` 巅峰 1350+、`4` 顶端排位、`5` 赛事；默认 3 |
+| `position`             | `0` 全部、`1` 对抗、`2` 中路、`3` 发育、`4` 游走、`5` 打野   |
+| `rankId` / `bottomTab` | 默认 `0` / 空串；其他取值未实现                              |
 
 消费 `data.updateTime`（来源格式化 8 位 `YYYYMMDD`）、`data.list[]` 的 `tRank`、`winRate`、`showRate`、`banRate` 与 `heroInfo.heroName` / `heroCareer` / `heroIcon`。比例乘 100 显示；来源按 T0～T3 分组，未知梯度回退 T3，这是本地展示策略。参数语义来自来源注释 / 映射，后续可对照响应筛选表复验。[请求][G1]、[梯度消费][G15]
 
@@ -1047,12 +1088,12 @@ item.battle.liveStream.stream.liveStreamUrl
 
 来源完整协议位于 [wechatLogin.js][G2]。本插件已有微信链路；下面补齐来源请求约定，方便复核。
 
-| 步骤 | 方法与完整地址 | 请求 / 响应关键字段 |
-| --- | --- | --- |
-| L01 SDK ticket | `POST https://ssl.kohsocialapp.qq.com:10001/a/getwxsdkticket` | 无 body；公共登录头 + 大写 UUID `x-log-uid`；检查 `returnCode=0`，读取 `data.sdkTicket` |
-| L02 出二维码 | `GET https://open.weixin.qq.com/connect/sdk/qrconnect` | Query：`appid`、`noncestr`、`timestamp`、`scope`、`signature`；读取 `errcode=0`、`uuid`、`qrcode.qrcodebase64` |
-| L03 轮询 | `GET https://long.open.weixin.qq.com/connect/l/qrconnect` | Query：`f=json`、`uuid=<QR_UUID>`；读取 `wx_errcode` 或 `errcode`，以及 `wx_code` 或 `code` |
-| L04 换营地凭据 | `POST https://ssl.kohsocialapp.qq.com:10001/user/login` | URL 编码表单，`loginType=wx`、`code`、设备参数 / RSA 设备负载；读取 `data.userId/token/encodeRes` |
+| 步骤           | 方法与完整地址                                                | 请求 / 响应关键字段                                                                                            |
+| -------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| L01 SDK ticket | `POST https://ssl.kohsocialapp.qq.com:10001/a/getwxsdkticket` | 无 body；公共登录头 + 大写 UUID `x-log-uid`；检查 `returnCode=0`，读取 `data.sdkTicket`                        |
+| L02 出二维码   | `GET https://open.weixin.qq.com/connect/sdk/qrconnect`        | Query：`appid`、`noncestr`、`timestamp`、`scope`、`signature`；读取 `errcode=0`、`uuid`、`qrcode.qrcodebase64` |
+| L03 轮询       | `GET https://long.open.weixin.qq.com/connect/l/qrconnect`     | Query：`f=json`、`uuid=<QR_UUID>`；读取 `wx_errcode` 或 `errcode`，以及 `wx_code` 或 `code`                    |
+| L04 换营地凭据 | `POST https://ssl.kohsocialapp.qq.com:10001/user/login`       | URL 编码表单，`loginType=wx`、`code`、设备参数 / RSA 设备负载；读取 `data.userId/token/encodeRes`              |
 
 L02 使用 `appid=wxf4b1e8a3e9aaf978`、`scope=snsapi_userinfo`、随机 8 位数字 `noncestr`、秒级时间戳。签名对以下 UTF-8 文本做 SHA-1 并输出十六进制：
 
@@ -1068,13 +1109,13 @@ appid=<APPID>&noncestr=<NONCE>&sdk_ticket=<SDK_TICKET>&timestamp=<SECONDS>
 
 L04 表单：
 
-| 字段 | 来源发送值 |
-| --- | --- |
-| `loginType` / `code` | `wx` / 微信轮询取得的授权 code |
-| `delOldUser`、`lastLoginTime`、`lastGetRemarkTime` | 字符串 `"0"` |
-| `key1` | 新生成 32 位去横线 UUID |
-| 客户端参数 | `cChannelId` 到 `tinkerId`，同 18.2 的设备 / 游戏版本参数；登录基础版本为 `10.111.0323` / `2057957801` |
-| `specialEncodeParam` | 下方设备 JSON → UTF-8 → RSA-PKCS#1 v1.5 分块 → 拼接密文 → Base64 |
+| 字段                                               | 来源发送值                                                                                             |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `loginType` / `code`                               | `wx` / 微信轮询取得的授权 code                                                                         |
+| `delOldUser`、`lastLoginTime`、`lastGetRemarkTime` | 字符串 `"0"`                                                                                           |
+| `key1`                                             | 新生成 32 位去横线 UUID                                                                                |
+| 客户端参数                                         | `cChannelId` 到 `tinkerId`，同 18.2 的设备 / 游戏版本参数；登录基础版本为 `10.111.0323` / `2057957801` |
+| `specialEncodeParam`                               | 下方设备 JSON → UTF-8 → RSA-PKCS#1 v1.5 分块 → 拼接密文 → Base64                                       |
 
 来源设备 JSON 字段如下，保持真实构造而非推定必填：
 
@@ -1186,22 +1227,22 @@ GET https://pvp.qq.com/zlkdatasys/heroskinlist.json
 
 顶层 JSON 对象：`yxlb20_2489` 为英雄数组，`pflb20_3469` 为皮肤数组。源码字段映射与本次响应核对：
 
-| 字段 | 英雄数组用途 | 皮肤数组用途 |
-| --- | --- | --- |
-| `yxid_a7` | 英雄编号 | — |
-| `yxmclb_9965` | 英雄名 | 所属英雄名 |
-| `yxpymc_4614` | 资料页拼音路径名 | — |
-| `fllb_2105`、`fzy_8576` | 主 / 次定位（来源映射） | — |
-| `yxtxlb_8443` | 头像图 | 本次也确认此键，语义按条目核对 |
-| `fmb1lb_5300` | 英雄封面 | 本次也确认此键，具体图片用途按内容确认 |
-| `sxsjlb_1516` | 上线日期 | 上线日期；可能为空或未来日期，来源按 `YYYYMMDD` 处理 |
-| `yjhjsl_5003` | 简介 | 简介 |
-| `pfidlb_3934` | — | 皮肤 ID |
-| `pfmclb_7523` | — | 皮肤名 |
-| `pfpzlb_3289` | — | 品质 |
-| `hqfs_8609` | — | 获取方式 |
-| `fmlb_4536` | 本次确认有此键，来源攻略不使用它作英雄主封面 | 皮肤横版封面 |
-| `pfgift_4455` | — | 来源映射为礼赠信息，具体值域待确认 |
+| 字段                    | 英雄数组用途                                 | 皮肤数组用途                                         |
+| ----------------------- | -------------------------------------------- | ---------------------------------------------------- |
+| `yxid_a7`               | 英雄编号                                     | —                                                    |
+| `yxmclb_9965`           | 英雄名                                       | 所属英雄名                                           |
+| `yxpymc_4614`           | 资料页拼音路径名                             | —                                                    |
+| `fllb_2105`、`fzy_8576` | 主 / 次定位（来源映射）                      | —                                                    |
+| `yxtxlb_8443`           | 头像图                                       | 本次也确认此键，语义按条目核对                       |
+| `fmb1lb_5300`           | 英雄封面                                     | 本次也确认此键，具体图片用途按内容确认               |
+| `sxsjlb_1516`           | 上线日期                                     | 上线日期；可能为空或未来日期，来源按 `YYYYMMDD` 处理 |
+| `yjhjsl_5003`           | 简介                                         | 简介                                                 |
+| `pfidlb_3934`           | —                                            | 皮肤 ID                                              |
+| `pfmclb_7523`           | —                                            | 皮肤名                                               |
+| `pfpzlb_3289`           | —                                            | 品质                                                 |
+| `hqfs_8609`             | —                                            | 获取方式                                             |
+| `fmlb_4536`             | 本次确认有此键，来源攻略不使用它作英雄主封面 | 皮肤横版封面                                         |
+| `pfgift_4455`           | —                                            | 来源映射为礼赠信息，具体值域待确认                   |
 
 这些带后缀字段可能随官网数据模板改变；源码 `pvpSkinImage.js` 有按值形态回退识别的逻辑。皮肤 ID 可与 C08 的 `iSkinId` 关联，这是来源实现使用的关联规则，本次未用登录账号逐项复验。官网总表不包含账号拥有状态，也不能保证包含所有经典原皮。[字段映射][G12]、[皮肤图源][G17]、[上线日历][G18]
 
@@ -1221,11 +1262,11 @@ GET https://pvp.qq.com/zlkdatasys/data_zlk_xpflby.json
 
 来源实现了 `getHeroXpflby` 请求方法，但本快照没有找到业务调用方 / 字段解析，因此此前只能确认地址。本次请求补充确认顶层键 `ygzlby_00`、`ygzyxdzbjt01_48`、`ymtitle_d2`、`pcblzlby_c6`、`yddblzlby_24`；数组样本包括：
 
-| 数组 | 本次样本字段 |
-| --- | --- |
-| `ygzlby_00` | `YXMC_8f`、`lbytphb_0c`、`ygzlbytpsb_2c`、`ygzlbyurl_af`、`lbyrq_e5`、`lbycsficon_9b`、`lx_fe`、`yxbllx_c2` |
-| `pcblzlby_c6` | `lbyrq_e5`、`pcblzlbytp_8e`、`pcblzlbybt_d3`、`pcblzlbyxqydz_c4`、`sxsj_24`、`lbycsficon_9b`、`pcblzlbyfbt_0e`、`pcblzlbydt_8b`、`pfld_45`、`pfbq_71`、`lx_fe`、`yxbllx_c2`、`sfxs_89`、`tyfzzbq_dd`、`sfsx_5e` |
-| `yddblzlby_24` | `lbyrq_e5`、`yddblztp_af`、`yddblzbt_90`、`yddblzjbxqydz_d7`、`lbycsficon_9b` |
+| 数组           | 本次样本字段                                                                                                                                                                                                    |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ygzlby_00`    | `YXMC_8f`、`lbytphb_0c`、`ygzlbytpsb_2c`、`ygzlbyurl_af`、`lbyrq_e5`、`lbycsficon_9b`、`lx_fe`、`yxbllx_c2`                                                                                                     |
+| `pcblzlby_c6`  | `lbyrq_e5`、`pcblzlbytp_8e`、`pcblzlbybt_d3`、`pcblzlbyxqydz_c4`、`sxsj_24`、`lbycsficon_9b`、`pcblzlbyfbt_0e`、`pcblzlbydt_8b`、`pfld_45`、`pfbq_71`、`lx_fe`、`yxbllx_c2`、`sfxs_89`、`tyfzzbq_dd`、`sfsx_5e` |
+| `yddblzlby_24` | `lbyrq_e5`、`yddblztp_af`、`yddblzbt_90`、`yddblzjbxqydz_d7`、`lbycsficon_9b`                                                                                                                                   |
 
 这里确认的是字段存在性，日期、上线 / 体验服标记、图片和链接的具体含义尚未建立稳定映射，不依据缩写创造业务契约。皮肤上新功能在来源最终使用 P02 的上线日期，不依赖这个表。[地址][G1]、[上新实现][G18]
 
@@ -1237,12 +1278,12 @@ GET https://pvp.qq.com/web201605/herodetail/<PINYIN>.shtml
 
 `PINYIN` 从 P02 英雄条目的 `yxpymc_4614` 读取；来源提醒不要用英雄数字 ID 代替。响应字节按 **GB18030** 解码。本次确认页面中有出装与技能标记，完整解析仍受 HTML 改版影响。
 
-| 页面内容 | 来源提取规则 |
-| --- | --- |
-| 成套出装 | `data-item="<装备ID>\|..."` 配合 `class="equip-tips"`；装备名由 P03 补齐 |
+| 页面内容                 | 来源提取规则                                                                  |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| 成套出装                 | `data-item="<装备ID>\|..."` 配合 `class="equip-tips"`；装备名由 P03 补齐      |
 | 最佳搭档 / 压制 / 被压制 | 按 `hero-f1 fl` 小标题分段，`data-src` 取英雄 ID，`hero-list-desc` 取对应说明 |
-| 技能图标 | `skill-u1` 中图片，过滤空占位 |
-| 技能说明 | `skill-name` 的 `<b>` / `<span>` 与 `skill-desc`；空标题 / 空内容过滤 |
+| 技能图标                 | `skill-u1` 中图片，过滤空占位                                                 |
+| 技能说明                 | `skill-name` 的 `<b>` / `<span>` 与 `skill-desc`；空标题 / 空内容过滤         |
 
 这是 HTML 页面读取，仍需要解析页面，但已有字段规则可复用；它不是官方结构化攻略 JSON API。[页面请求][G1]、[解析器][G12]
 
@@ -1254,16 +1295,16 @@ GET https://pvp.qq.com/web201605/herodetail/<PINYIN>.shtml
 GET https://apps.game.qq.com/cmc/cross
 ```
 
-| Query | 来源值 |
-| --- | --- |
-| `serviceId`、`source` | `18`、`web_pc` |
-| `filter`、`sortby`、`logic` | `channel`、`sIdxTime`、`or` |
-| `typeids`、`withtop` | `1,2`、`yes` |
-| `chanid` | 默认 `1762` 版本公告；来源另映射 `1760` 热门、`1761` 新闻、`1763` 活动、`1766` 体验服 |
-| `limit`、`start` | 默认 `30`、`0`；偏移式分页 |
-| `exclusiveChannel` | `4` |
-| `time` | 当前秒级时间戳字符串 |
-| `exclusiveChannelSign` | 下述 MD5 十六进制签名 |
+| Query                       | 来源值                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------- |
+| `serviceId`、`source`       | `18`、`web_pc`                                                                        |
+| `filter`、`sortby`、`logic` | `channel`、`sIdxTime`、`or`                                                           |
+| `typeids`、`withtop`        | `1,2`、`yes`                                                                          |
+| `chanid`                    | 默认 `1762` 版本公告；来源另映射 `1760` 热门、`1761` 新闻、`1763` 活动、`1766` 体验服 |
+| `limit`、`start`            | 默认 `30`、`0`；偏移式分页                                                            |
+| `exclusiveChannel`          | `4`                                                                                   |
+| `time`                      | 当前秒级时间戳字符串                                                                  |
+| `exclusiveChannelSign`      | 下述 MD5 十六进制签名                                                                 |
 
 ```text
 md5("234ce0aef3020cb83887883877b64869" + "web_pc" + "18" + <SECONDS>)
@@ -1288,11 +1329,11 @@ GET https://www.sapi.run/hero/select.php?hero=<URL_ENCODED_HERO_NAME>&type=<REGI
 ```
 
 | `type` | 来源用途 |
-| --- | --- |
-| `aqq` | 安卓 QQ |
-| `awx` | 安卓微信 |
-| `iqq` | iOS QQ |
-| `iwx` | iOS 微信 |
+| ------ | -------- |
+| `aqq`  | 安卓 QQ  |
+| `awx`  | 安卓微信 |
+| `iqq`  | iOS QQ   |
+| `iwx`  | iOS 微信 |
 
 来源无额外鉴权头，要求 JSON `code === 200` 且 `data` 非空，读取 `msg` 作为接口提示。响应与本次成功样本确认的 `data` 字段：`uid`、`name`、`alias`、`platform`、`photo`、`province`、`provincePower`、`city`、`cityPower`、`area`、`areaPower`、`guobiao`、`stamp`、`updatetime`。
 
@@ -1302,16 +1343,16 @@ GET https://www.sapi.run/hero/select.php?hero=<URL_ENCODED_HERO_NAME>&type=<REGI
 
 ### 21.8 静态图片资源与 CDN
 
-| 来源资源 | URL 模板 / 读取方式 |
-| --- | --- |
-| 英雄方形图 | `https://game.gtimg.cn/images/yxzj/img201606/heroimg/<HERO_ID>/<HERO_ID>.jpg` |
-| 装备图 | `https://game.gtimg.cn/images/yxzj/img201606/itemimg/<ITEM_ID>.jpg` |
-| 技能图 | `https://game.gtimg.cn/images/yxzj/img201606/heroimg/<HERO_ID>/<HERO_ID><INDEX>.png`；具体图序优先用 HTML 返回 URL |
-| 旧式皮肤大图 | `https://game.gtimg.cn/images/yxzj/img201606/skin/hero-info/<HERO_ID>/<HERO_ID>-bigskin-<SEQ>.jpg`；来源先确认皮肤名 / 序号匹配再用 |
-| 营地英雄特写 | `https://game-1255653016.file.myqcloud.com/battle_skin_1250-326/<HERO_ID>00.jpg` |
-| 皮肤立绘 / 品质角标 | C08 配置里的 `szLargeIcon` / `bigCover` / `classLabel`，以及 P02 的 `fmlb_4536`；不拼未知哈希 |
-| QQ 用户头像 | `https://q1.qlogo.cn/g?b=qq&s=<SIZE>&nk=<QQ_NUMBER>`；仅对真实数字 QQ 标识使用 |
-| QQ 群头像 | `https://p.qlogo.cn/gh/<GROUP_ID>/<GROUP_ID>/<SIZE>`；QQ 官方 OpenID 不能直接代替数字 QQ |
+| 来源资源            | URL 模板 / 读取方式                                                                                                                 |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 英雄方形图          | `https://game.gtimg.cn/images/yxzj/img201606/heroimg/<HERO_ID>/<HERO_ID>.jpg`                                                       |
+| 装备图              | `https://game.gtimg.cn/images/yxzj/img201606/itemimg/<ITEM_ID>.jpg`                                                                 |
+| 技能图              | `https://game.gtimg.cn/images/yxzj/img201606/heroimg/<HERO_ID>/<HERO_ID><INDEX>.png`；具体图序优先用 HTML 返回 URL                  |
+| 旧式皮肤大图        | `https://game.gtimg.cn/images/yxzj/img201606/skin/hero-info/<HERO_ID>/<HERO_ID>-bigskin-<SEQ>.jpg`；来源先确认皮肤名 / 序号匹配再用 |
+| 营地英雄特写        | `https://game-1255653016.file.myqcloud.com/battle_skin_1250-326/<HERO_ID>00.jpg`                                                    |
+| 皮肤立绘 / 品质角标 | C08 配置里的 `szLargeIcon` / `bigCover` / `classLabel`，以及 P02 的 `fmlb_4536`；不拼未知哈希                                       |
+| QQ 用户头像         | `https://q1.qlogo.cn/g?b=qq&s=<SIZE>&nk=<QQ_NUMBER>`；仅对真实数字 QQ 标识使用                                                      |
+| QQ 群头像           | `https://p.qlogo.cn/gh/<GROUP_ID>/<GROUP_ID>/<SIZE>`；QQ 官方 OpenID 不能直接代替数字 QQ                                            |
 
 腾讯云图片 URL 在来源中可带 `imageMogr2/thumbnail/1400x/format/jpg/quality/85` 等处理参数；这是特定 CDN 图源的用法，不能加到所有图片域名上。图片资源未在本次逐张请求验证，路径模板可作为回退，实际响应 URL 优先。[图片映射][G12]、[皮肤图源][G17]、[英雄头像][G9]、[QQ 头像工具][G31]
 
@@ -1344,23 +1385,31 @@ Content-Type: application/json
 
 所有 body 为 JSON，通常超时 15 秒，开播超时 60 秒。来源读取 `ok` / `error` / `code`，并未把 HTTP 状态成功当充分成功条件。[观战客户端][G33]
 
-| 编号 | 方法 / 路径 | 请求参数 | 来源消费响应 |
-| --- | --- | --- | --- |
-| W01 | `GET /api/status` | 无 | `ok`、`accounts`；状态探测；字段完整性未知 |
-| W02 | `GET /api/rooms` | 无 | `ok`、`rooms[]`；控制端探测 / 在播列表 |
-| W03 | `GET /api/friends` | 可选 Query `watchers=<逗号分隔登录营地账号ID>` | `ok`、`playing[]`、`total`、`online`、`free`、`friendCampIds[]` |
-| W04 | `POST /api/start` | 好友坐标或 `rtmpUrl`，见下文 | `ok`、`url`、`rid`、`pending`、`reused`；失败 `code=no-account` / `occupied[]` |
-| W05 | `POST /api/stop` | `{owner:<发起人标识>}` 或 `{rid:<房间ID>}`；全停 `{owner:"*"}` | `ok`、`stopped`、`error` |
-| W06 | `POST /api/hint/remember` | `groupId`、`battleID`、`campId`、`nick`、`watcher`、`owners`、`userID`、`roleId` | 保存开播提示坐标；客户端未解析完整成功 schema |
-| W07 | `GET /api/hint/latest` | Query `group`，可选 `nick` | `ok`、`hint`；提示坐标 |
-| W08 | `POST /api/accounts` | `{accounts:{<营地ID>:<账号对象>}}` | `ok`、`error`；账号上报 |
+| 编号 | 方法 / 路径               | 请求参数                                                                         | 来源消费响应                                                                   |
+| ---- | ------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| W01  | `GET /api/status`         | 无                                                                               | `ok`、`accounts`；状态探测；字段完整性未知                                     |
+| W02  | `GET /api/rooms`          | 无                                                                               | `ok`、`rooms[]`；控制端探测 / 在播列表                                         |
+| W03  | `GET /api/friends`        | 可选 Query `watchers=<逗号分隔登录营地账号ID>`                                   | `ok`、`playing[]`、`total`、`online`、`free`、`friendCampIds[]`                |
+| W04  | `POST /api/start`         | 好友坐标或 `rtmpUrl`，见下文                                                     | `ok`、`url`、`rid`、`pending`、`reused`；失败 `code=no-account` / `occupied[]` |
+| W05  | `POST /api/stop`          | `{owner:<发起人标识>}` 或 `{rid:<房间ID>}`；全停 `{owner:"*"}`                   | `ok`、`stopped`、`error`                                                       |
+| W06  | `POST /api/hint/remember` | `groupId`、`battleID`、`campId`、`nick`、`watcher`、`owners`、`userID`、`roleId` | 保存开播提示坐标；客户端未解析完整成功 schema                                  |
+| W07  | `GET /api/hint/latest`    | Query `group`，可选 `nick`                                                       | `ok`、`hint`；提示坐标                                                         |
+| W08  | `POST /api/accounts`      | `{accounts:{<营地ID>:<账号对象>}}`                                               | `ok`、`error`；账号上报                                                        |
 
 W03 的 `playing[]` 消费字段：`watcher`、`owners[]`、`battleId`、`userId`、`roleId`、`campId`、`nick` / `campNick`、`avatar`、`jobName`、`startTs`、`canWatch`。`watcher` 是有好友关系的请求账号，`owners` 是可见账号范围；`free` 是空闲账号数，与 `canWatch=true` 的对局条数不同。
 
 好友开播 W04：
 
 ```json
-{"watcher":"<LOGIN_CAMP_ID>","owners":["<LOGIN_CAMP_ID>"],"battleID":"<SERVICE_BATTLE_ID>","userID":"<FRIEND_USER_ID>","roleId":"<FRIEND_ROLE_ID>","nick":"<DISPLAY_NAME>","owner":"<BOT_USER_ID>"}
+{
+  "watcher": "<LOGIN_CAMP_ID>",
+  "owners": ["<LOGIN_CAMP_ID>"],
+  "battleID": "<SERVICE_BATTLE_ID>",
+  "userID": "<FRIEND_USER_ID>",
+  "roleId": "<FRIEND_ROLE_ID>",
+  "nick": "<DISPLAY_NAME>",
+  "owner": "<BOT_USER_ID>"
+}
 ```
 
 保留 W03 的返回值类型；模板中的字符串只是占位。注意 W03 返回 `battleId/userId`，W04 发 **`battleID/userID`**；取流 `userID`、轮询 `roleId`、玩家营地 `campId` 不应互换。账号被占时来源先要求确认，之后另加 `replace=true` 重试；空 owner 不发停止请求。`owner` 是来源业务归属标识，不是腾讯营地鉴权用户。
@@ -1371,22 +1420,28 @@ W03 的 `playing[]` 消费字段：`watcher`、`owners[]`、`battleId`、`userId
 
 来源 [campImClient.js][G35]，默认 JSON 请求，普通超时 15 秒，好友 30 秒，发送 20 秒；客户端在调用前可能上报远端账号。
 
-| 编号 | 方法 / 路径 | 请求参数 | 来源消费响应 |
-| --- | --- | --- | --- |
-| I01 | `GET /api/status` | 无 | `ok`、`clients[]`、`queue.length` / `queue.lastId`、`accounts` 等 |
-| I02 | `GET /api/messages` | Query `since=<上次消息游标>`，默认 0 | `ok`、`messages[]`、`lastId` |
-| I03 | `GET /api/friends` | Query `selfUserId=<自己已登录营地ID>` | `ok`、`friends[]`、`total`；来源说明只返回在游戏里的好友 |
-| I04 | `POST /api/send` | `selfUserId`、`toUserId`、可选 `toRoleId` / `fromRoleId`、`message` | `ok`，失败 `error` / `code` / `raw` |
-| I05 | `POST /api/connect` | `{userIds:[<营地ID>,...]}` | `ok` / `error`；启动指定账号连接 |
-| I06 | `POST /api/disconnect` | `{userIds:[<营地ID>,...]}` | `ok` / `error`；停止指定账号连接 |
-| I07 | `POST /api/accounts` | 同 W08，但基址是 IM 服务 | `ok` / `error` |
+| 编号 | 方法 / 路径            | 请求参数                                                            | 来源消费响应                                                      |
+| ---- | ---------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| I01  | `GET /api/status`      | 无                                                                  | `ok`、`clients[]`、`queue.length` / `queue.lastId`、`accounts` 等 |
+| I02  | `GET /api/messages`    | Query `since=<上次消息游标>`，默认 0                                | `ok`、`messages[]`、`lastId`                                      |
+| I03  | `GET /api/friends`     | Query `selfUserId=<自己已登录营地ID>`                               | `ok`、`friends[]`、`total`；来源说明只返回在游戏里的好友          |
+| I04  | `POST /api/send`       | `selfUserId`、`toUserId`、可选 `toRoleId` / `fromRoleId`、`message` | `ok`，失败 `error` / `code` / `raw`                               |
+| I05  | `POST /api/connect`    | `{userIds:[<营地ID>,...]}`                                          | `ok` / `error`；启动指定账号连接                                  |
+| I06  | `POST /api/disconnect` | `{userIds:[<营地ID>,...]}`                                          | `ok` / `error`；停止指定账号连接                                  |
+| I07  | `POST /api/accounts`   | 同 W08，但基址是 IM 服务                                            | `ok` / `error`                                                    |
 
 源码对 I01 的 `clients[]` 读取 `userId`、`nickname`、`state`，以 `state === "online"` 计连接在线数。I02 消息读取 `id`、`selfUserId`、`fromUserId`、`fromRoleId`、`fromRoleName`、`fromRoleIcon`、`fromRoleDesc`、`text`、`raw.toRoleId`；具体字段可缺失。I03 好友读取 `userId`、`roleId`、`nick` / `campNick`、`avatar`、`jobName`、`battleId`。好友列表序号是本地映射，不是可发送的营地用户 ID。[好友 / 发送消费][G36]、[轮询 / 回复消费][G37]
 
 I04 请求模板：
 
 ```json
-{"selfUserId":"<OWN_CAMP_ID>","toUserId":"<FRIEND_USER_ID>","toRoleId":"<FRIEND_ROLE_ID>","fromRoleId":"","message":"<TEXT>"}
+{
+  "selfUserId": "<OWN_CAMP_ID>",
+  "toUserId": "<FRIEND_USER_ID>",
+  "toRoleId": "<FRIEND_ROLE_ID>",
+  "fromRoleId": "",
+  "message": "<TEXT>"
+}
 ```
 
 来源 IM 需要账号拥有者约束，查询与发送入口限制私聊；不是用全局公共查询账号任意收发别人的消息。消息 `lastId` 是游标，不能当队列数量；数量读 `queue.length`。服务重启可能使 `lastId` 回退，来源重置游标；WebSocket 重放可分配新 ID，需要额外消息指纹去重。公开源码没有 IM WebSocket 地址、握手、帧结构或腾讯发送签名，本次无法整理为无需服务端的直连协议。
@@ -1397,11 +1452,11 @@ I04 请求模板：
 
 基址 `shareApiUrl`，JSON body，鉴权为 `Authorization: Bearer <SHARE_TOKEN>`，`Content-Type: application/json`。这里共享的是用户标识与营地 ID 绑定，**不是共享营地账号 token**。[共享客户端][G38]
 
-| 编号 | 方法 / 路径 | body | 消费 / 成功判断 |
-| --- | --- | --- | --- |
-| SVC01 | `POST /api/v1/bind/query` | `{qq:<用户标识>,since:<上次更新时间，默认0>}` | `campIds[]`、`current`、`updatedAt`，或 `unchanged=true` / `updatedAt` |
-| SVC02 | `PUT /api/v1/bind` | `{qq:<用户标识>,campIds:[<营地ID>,...],current:<当前营地ID>}` | 来源按 HTTP 成功判断，未解析写入响应结构 |
-| SVC03 | `DELETE /api/v1/bind` | `{qq:<用户标识>}` | 同上；是 DELETE JSON body，不是 query |
+| 编号  | 方法 / 路径               | body                                                          | 消费 / 成功判断                                                        |
+| ----- | ------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| SVC01 | `POST /api/v1/bind/query` | `{qq:<用户标识>,since:<上次更新时间，默认0>}`                 | `campIds[]`、`current`、`updatedAt`，或 `unchanged=true` / `updatedAt` |
+| SVC02 | `PUT /api/v1/bind`        | `{qq:<用户标识>,campIds:[<营地ID>,...],current:<当前营地ID>}` | 来源按 HTTP 成功判断，未解析写入响应结构                               |
+| SVC03 | `DELETE /api/v1/bind`     | `{qq:<用户标识>}`                                             | 同上；是 DELETE JSON body，不是 query                                  |
 
 `current` 是选中的营地 ID 字符串，**不是数组下标**；不在 `campIds` 中时来源回退第一个。`since` 为来源缓存的 `updatedAt` 数值，具体时间单位未从缺失服务端确认。查询 404 表示没有共享记录；401 无效令牌、403 吊销、429 频控。读超时 1500ms，写 / 探测 5000ms，这是客户端设置。
 
@@ -1411,12 +1466,12 @@ I04 请求模板：
 
 同共享基址，鉴权头 **`X-Admin-Secret: <ADMIN_SECRET>`**，与客户端 Bearer token 分开。来源只在管理员命令使用。[管理客户端][G39]
 
-| 编号 | 方法 / 路径 | 请求 | 消费响应 |
-| --- | --- | --- | --- |
-| ADM01 | `POST /api/v1/admin/tokens` | JSON `{name:<接入方备注>}`，默认“本机机器人” | 新接入令牌；来源随后读取 `token`，其他完整字段未确认 |
-| ADM02 | `GET /api/v1/admin/tokens` | 无 body | `clients[]` 的 `id`、`name`、`enabled`、`tokenPrefix`、`lastSeenAt` |
-| ADM03 | `DELETE /api/v1/admin/tokens/<ID>` | 路径为接入方 ID | HTTP 成功；404 找不到；401 / 403 管理密钥失败 |
-| ADM04 | `GET /api/v1/admin/stats` | 无 body | 源码整体读取统计对象，没有完整字段 schema |
+| 编号  | 方法 / 路径                        | 请求                                         | 消费响应                                                            |
+| ----- | ---------------------------------- | -------------------------------------------- | ------------------------------------------------------------------- |
+| ADM01 | `POST /api/v1/admin/tokens`        | JSON `{name:<接入方备注>}`，默认“本机机器人” | 新接入令牌；来源随后读取 `token`，其他完整字段未确认                |
+| ADM02 | `GET /api/v1/admin/tokens`         | 无 body                                      | `clients[]` 的 `id`、`name`、`enabled`、`tokenPrefix`、`lastSeenAt` |
+| ADM03 | `DELETE /api/v1/admin/tokens/<ID>` | 路径为接入方 ID                              | HTTP 成功；404 找不到；401 / 403 管理密钥失败                       |
+| ADM04 | `GET /api/v1/admin/stats`          | 无 body                                      | 源码整体读取统计对象，没有完整字段 schema                           |
 
 签发超时 8 秒，其他管理探测通常 5 秒。默认管理密钥、接入令牌与实际服务地址不在此文档记录。公开仓库没有共享库服务端，不能从客户端接口直接推断数据库结构、令牌作用域或默认限额。
 
@@ -1424,10 +1479,10 @@ I04 请求模板：
 
 基址 `distUrl`，`Authorization: Bearer <DIST_TOKEN>`。源码中的包名为 `watch`（观战）与 `im`（消息），不是 npm 包名；接入令牌与营地账号 token、共享库 token 各自独立。[分发客户端][G40]
 
-| 编号 | 方法 / 路径 | 参数 | 消费响应 |
-| --- | --- | --- | --- |
-| D01 | `GET /api/v1/packages/<NAME>/latest` | 路径包名；通常超时 10 秒 | JSON `sha` 必须非空，另读取 `size`、`sha256` |
-| D02 | `GET /api/v1/packages/<NAME>/download` | 可选 Query `sha=<选定版本>`；默认超时 180 秒 | 二进制包；响应头 `x-gok-sha` 或请求 sha 作为版本 |
+| 编号 | 方法 / 路径                            | 参数                                         | 消费响应                                         |
+| ---- | -------------------------------------- | -------------------------------------------- | ------------------------------------------------ |
+| D01  | `GET /api/v1/packages/<NAME>/latest`   | 路径包名；通常超时 10 秒                     | JSON `sha` 必须非空，另读取 `size`、`sha256`     |
+| D02  | `GET /api/v1/packages/<NAME>/download` | 可选 Query `sha=<选定版本>`；默认超时 180 秒 | 二进制包；响应头 `x-gok-sha` 或请求 sha 作为版本 |
 
 401 无效令牌、403 吊销、404 没有该包、429 频控。这些是服务分发客户端可见约定；没有实际分发地址 / 令牌 / 服务端源码，无法验证下载格式和服务端行为。文档整理不代表安装这些包。
 
@@ -1444,16 +1499,16 @@ I04 请求模板：
 
 这里只记录后续可复用位置，本次没有实现新功能或修改账号策略。
 
-| 能力 | 当前基础 | 后续需要补齐 |
-| --- | --- | --- |
-| C01 / C02 / C03 / C11 | `CampDataApi` 已有 JSON 请求；详情已带对局坐标 | 对照新消费字段、详情 `friendUserId` 的必要性、赛季二跳与隐私差异 |
-| C04 / C06 / C07 / C09 / C10 / C12 / C13 / C14 | 可复用 `CampClient` 的主站鉴权与账号池 | C07 需增加额外请求头能力；C10 接受无 `data` 包装；其余补业务模型 |
-| C05 / C08 | 当前查询客户端固定主站 + JSON | 增加受控腾讯游戏域名 / 表单模式，换号时重新构造含账号凭据的表单 |
-| 微信登录 | 已有 `CampLoginManager`、RSA / XXTEA、登录态存储 | 保留本插件既有实现，按真实问题比较设备负载 / 版本，避免整体替换 |
-| QQ 登录 / 重登 | 当前产品只提供微信扫码 | 需要独立浏览器会话、YSDK 签名、账号归属和新旧凭据更新流程 |
-| 官网表 / 公告 / 攻略 | `HttpClient` 与内置英雄表可作为基础 | 公共 GET / GB18030 / 赋值外壳解析、字段索引和 HTML 清洗；按需求决定缓存策略 |
-| 第三方战力 | 当前 README 声明营地直连，无第三方数据依赖 | 若以后引入，应明确标注第三方来源、时效、部分失败和功能边界 |
-| 观战 / IM / 共享 | 当前插件没有这些外置服务组件 | 只有公开客户端约定；服务授权、完整协议与功能设计仍缺失 |
+| 能力                                          | 当前基础                                         | 后续需要补齐                                                                |
+| --------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------- |
+| C01 / C02 / C03 / C11                         | `CampDataApi` 已有 JSON 请求；详情已带对局坐标   | 对照新消费字段、详情 `friendUserId` 的必要性、赛季二跳与隐私差异            |
+| C04 / C06 / C07 / C09 / C10 / C12 / C13 / C14 | 可复用 `CampClient` 的主站鉴权与账号池           | C07 需增加额外请求头能力；C10 接受无 `data` 包装；其余补业务模型            |
+| C05 / C08                                     | 当前查询客户端固定主站 + JSON                    | 增加受控腾讯游戏域名 / 表单模式，换号时重新构造含账号凭据的表单             |
+| 微信登录                                      | 已有 `CampLoginManager`、RSA / XXTEA、登录态存储 | 保留本插件既有实现，按真实问题比较设备负载 / 版本，避免整体替换             |
+| QQ 登录 / 重登                                | 当前产品只提供微信扫码                           | 需要独立浏览器会话、YSDK 签名、账号归属和新旧凭据更新流程                   |
+| 官网表 / 公告 / 攻略                          | `HttpClient` 与内置英雄表可作为基础              | 公共 GET / GB18030 / 赋值外壳解析、字段索引和 HTML 清洗；按需求决定缓存策略 |
+| 第三方战力                                    | 当前 README 声明营地直连，无第三方数据依赖       | 若以后引入，应明确标注第三方来源、时效、部分失败和功能边界                  |
+| 观战 / IM / 共享                              | 当前插件没有这些外置服务组件                     | 只有公开客户端约定；服务授权、完整协议与功能设计仍缺失                      |
 
 建议优先考虑无需新增私人服务的英雄详情、我的英雄 / 历史最高战力、皮肤资料、分路表现、梯度、攻略与公告。这个顺序是开发参考，不代表已经确认产品需求。
 
@@ -1463,16 +1518,16 @@ I04 请求模板：
 
 通过有限公开 GET 请求核对响应形态，没有使用本插件保存的营地凭据。JSON 表的 Content-Type 本次多为 `application/octet-stream`，不能仅凭这个头拒绝解析 JSON。数量是当日样本，不能写死在实现中。
 
-| 入口 | HTTP / 业务结果 | 本次确认范围 |
-| --- | --- | --- |
-| P01 英雄表 | 200 | UTF-8 JSON 数组，133 条；字段见 21.1 |
-| P02 英雄 / 皮肤表 | 200 | 对象，两组数组；133 个英雄、828 条皮肤；21.2 的主要映射键存在 |
-| P03 装备表 | 200 | UTF-8 JSON 数组，115 条；6 个字段与来源一致 |
-| P04 爆料表 | 200 | 对象；三个数组样本条数 543 / 542 / 545；结构键见 21.4，业务语义未全面验证 |
-| P05 英雄 HTML | 200 | 使用 P02 返回的拼音请求；GB18030 可解码，含 `data-item` 和 `skill-name` 标记；未测试所有英雄 |
-| P06 资讯列表 | 200，`status=0` | `chanid=1762`、`start=0`、`limit=1`、公开签名请求成功；`data.items/total` 及常用字段存在 |
-| P07 单条正文 | 200，`status=0` | 使用上述列表第一项 `iId`；`var searchObj=` 外壳、`msg.sTitle/sContent/sIdxTime/sCreated` 可解析 |
-| P08 第三方战力 | 200，`code=200` | 正确英雄名“妲己” + `type=aqq`；响应字段见 21.7；其他大区未测 |
+| 入口              | HTTP / 业务结果 | 本次确认范围                                                                                    |
+| ----------------- | --------------- | ----------------------------------------------------------------------------------------------- |
+| P01 英雄表        | 200             | UTF-8 JSON 数组，133 条；字段见 21.1                                                            |
+| P02 英雄 / 皮肤表 | 200             | 对象，两组数组；133 个英雄、828 条皮肤；21.2 的主要映射键存在                                   |
+| P03 装备表        | 200             | UTF-8 JSON 数组，115 条；6 个字段与来源一致                                                     |
+| P04 爆料表        | 200             | 对象；三个数组样本条数 543 / 542 / 545；结构键见 21.4，业务语义未全面验证                       |
+| P05 英雄 HTML     | 200             | 使用 P02 返回的拼音请求；GB18030 可解码，含 `data-item` 和 `skill-name` 标记；未测试所有英雄    |
+| P06 资讯列表      | 200，`status=0` | `chanid=1762`、`start=0`、`limit=1`、公开签名请求成功；`data.items/total` 及常用字段存在        |
+| P07 单条正文      | 200，`status=0` | 使用上述列表第一项 `iId`；`var searchObj=` 外壳、`msg.sTitle/sContent/sIdxTime/sCreated` 可解析 |
+| P08 第三方战力    | 200，`code=200` | 正确英雄名“妲己” + `type=aqq`；响应字段见 21.7；其他大区未测                                    |
 
 本次没有把公告全文、第三方整表、玩家数据或任何登录凭据保存到仓库；只保存协议说明与以上验证结论。源码中的旧计数（如 132 英雄、121 装备、816 皮肤）与本次结果不同，已按各自验证日期区分。
 
@@ -1487,49 +1542,49 @@ I04 请求模板：
 
 G 系列全部固定到 GitHub 提交 `4d4238d2c9c2c37af7007d40dd0723308c006bb4`，即本次实际读取的公开源码；其打包上游快照另见 G0。请求参数优先看 G1～G3，响应字段必须结合对应业务消费文件。
 
-| 编号 | 文件 | 主要内容 |
-| --- | --- | --- |
-| G0 | [UPSTREAM.json][G0] | 上游来源、提交与文件摘要 |
-| G1 | [utils/api.js][G1] | 15 个营地业务入口、公共协议、公开 URL 与请求 |
-| G2 | [utils/wechatLogin.js][G2] | 微信 SDK、二维码、轮询、登录、设备 RSA |
-| G3 | [utils/qqLogin.js][G3] | QQ 浏览器授权、YSDK、openSdk 登录与重登 |
-| G4 | [utils/heroDetail.js][G4] | 单英雄详情、曲线、五维、近局字段 |
-| G5 | [utils/heroMedals.js][G5] | 当前称号查询 |
-| G6 | [apps/skinWall.js][G6] | 皮肤拥有判据、统计与图源 |
-| G7 | [utils/skinCatalog.js][G7] | 皮肤全配置与原皮识别 |
-| G8 | [apps/heroList.js][G8] | 赛季 / 生涯常用英雄字段 |
-| G9 | [apps/myHeroList.js][G9] | 全量英雄与历史最高战力关联 |
-| G10 | [apps/skinMissing.js][G10] | 缺皮肤计算与拥有判据 |
-| G11 | [utils/seasonFallback.js][G11] | 分接口隐私错误与降级范围 |
-| G12 | [utils/heroGuide.js][G12] | 官网字段、HTML 攻略、装备 / 铭文整理 |
-| G13 | [apps/seasonPage.js][G13] | 赛季二跳、分路、趋势时间窗 |
-| G14 | [apps/peakPerformance.js][G14] | 巅峰五维与历史赛季消费 |
-| G15 | [apps/heroTierList.js][G15] | 梯度段位 / 分路枚举和比例 |
-| G16 | [utils/masterPool.js][G16] | 大神池流 URL / 模式 / 分路 |
-| G17 | [utils/pvpSkinImage.js][G17] | 官网皮肤图片索引与 CDN 参数 |
-| G18 | [utils/skinNews.js][G18] | 官网皮肤上线日期与上新 |
-| G19 | [utils/profileSummary.js][G19] | 角色匹配与主页模块摘要 |
-| G20 | [apps/queryGameStats.js][G20] | 模式、英雄本地筛选与游标 |
-| G21 | [utils/battleDetailImage.js][G21] | 详情字段与图片消费 |
-| G22 | [apps/campRenew.js][G22] | 保活与 QQ 重新登录策略 |
-| G23 | [apps/heroSkin.js][G23] | 英雄 / 皮肤编号和图片回退 |
-| G24 | [utils/gameNews.js][G24] | 公告字段、标签筛选与 HTML |
-| G25 | [apps/heroFightingCapacity.js][G25] | sapi.run 四区门槛与英雄命名 |
-| G26 | [engine/remote-policy.mjs][G26] | 远端凭据接收地址允许列表 |
-| G27 | [services/runtime.py][G27] | 运行副本补丁，账号 POST 禁重定向 |
-| G28 | [README.md][G28] | 服务缺失边界与平台范围 |
-| G29 / G30 | [LICENSE][G29] / [上游 LICENSE][G30] | 许可归属 |
-| G31 | [utils/avatar.js][G31] | 数字 QQ 图片模板与 OpenID 区分 |
-| G32 | [utils/remoteAccounts.js][G32] | 服务探测、凭据上报与节流 |
-| G33 | [apps/watchBattle.js][G33] | 观战服务客户端参数 / 响应 |
-| G34 | [apps/gameRecordPush.js][G34] | 观战好友与提示坐标写入 |
-| G35 | [utils/campImClient.js][G35] | IM 服务 HTTP 协议 |
-| G36 | [apps/campFriend.js][G36] | IM 好友与发送字段 |
-| G37 | [apps/campIm.js][G37] | IM 消息游标、回复与状态 |
-| G38 | [utils/shareStore.js][G38] | 共享绑定请求 / 错误 |
-| G39 | [apps/shareDeploy.js][G39] | 共享库管理接口 |
-| G40 | [utils/deploy.js][G40] | 包版本 / 下载请求 |
-| G41 | [utils/http.py][G41] | 未发现业务调用的访客 Cookie 辅助 |
+| 编号      | 文件                                 | 主要内容                                     |
+| --------- | ------------------------------------ | -------------------------------------------- |
+| G0        | [UPSTREAM.json][G0]                  | 上游来源、提交与文件摘要                     |
+| G1        | [utils/api.js][G1]                   | 15 个营地业务入口、公共协议、公开 URL 与请求 |
+| G2        | [utils/wechatLogin.js][G2]           | 微信 SDK、二维码、轮询、登录、设备 RSA       |
+| G3        | [utils/qqLogin.js][G3]               | QQ 浏览器授权、YSDK、openSdk 登录与重登      |
+| G4        | [utils/heroDetail.js][G4]            | 单英雄详情、曲线、五维、近局字段             |
+| G5        | [utils/heroMedals.js][G5]            | 当前称号查询                                 |
+| G6        | [apps/skinWall.js][G6]               | 皮肤拥有判据、统计与图源                     |
+| G7        | [utils/skinCatalog.js][G7]           | 皮肤全配置与原皮识别                         |
+| G8        | [apps/heroList.js][G8]               | 赛季 / 生涯常用英雄字段                      |
+| G9        | [apps/myHeroList.js][G9]             | 全量英雄与历史最高战力关联                   |
+| G10       | [apps/skinMissing.js][G10]           | 缺皮肤计算与拥有判据                         |
+| G11       | [utils/seasonFallback.js][G11]       | 分接口隐私错误与降级范围                     |
+| G12       | [utils/heroGuide.js][G12]            | 官网字段、HTML 攻略、装备 / 铭文整理         |
+| G13       | [apps/seasonPage.js][G13]            | 赛季二跳、分路、趋势时间窗                   |
+| G14       | [apps/peakPerformance.js][G14]       | 巅峰五维与历史赛季消费                       |
+| G15       | [apps/heroTierList.js][G15]          | 梯度段位 / 分路枚举和比例                    |
+| G16       | [utils/masterPool.js][G16]           | 大神池流 URL / 模式 / 分路                   |
+| G17       | [utils/pvpSkinImage.js][G17]         | 官网皮肤图片索引与 CDN 参数                  |
+| G18       | [utils/skinNews.js][G18]             | 官网皮肤上线日期与上新                       |
+| G19       | [utils/profileSummary.js][G19]       | 角色匹配与主页模块摘要                       |
+| G20       | [apps/queryGameStats.js][G20]        | 模式、英雄本地筛选与游标                     |
+| G21       | [utils/battleDetailImage.js][G21]    | 详情字段与图片消费                           |
+| G22       | [apps/campRenew.js][G22]             | 保活与 QQ 重新登录策略                       |
+| G23       | [apps/heroSkin.js][G23]              | 英雄 / 皮肤编号和图片回退                    |
+| G24       | [utils/gameNews.js][G24]             | 公告字段、标签筛选与 HTML                    |
+| G25       | [apps/heroFightingCapacity.js][G25]  | sapi.run 四区门槛与英雄命名                  |
+| G26       | [engine/remote-policy.mjs][G26]      | 远端凭据接收地址允许列表                     |
+| G27       | [services/runtime.py][G27]           | 运行副本补丁，账号 POST 禁重定向             |
+| G28       | [README.md][G28]                     | 服务缺失边界与平台范围                       |
+| G29 / G30 | [LICENSE][G29] / [上游 LICENSE][G30] | 许可归属                                     |
+| G31       | [utils/avatar.js][G31]               | 数字 QQ 图片模板与 OpenID 区分               |
+| G32       | [utils/remoteAccounts.js][G32]       | 服务探测、凭据上报与节流                     |
+| G33       | [apps/watchBattle.js][G33]           | 观战服务客户端参数 / 响应                    |
+| G34       | [apps/gameRecordPush.js][G34]        | 观战好友与提示坐标写入                       |
+| G35       | [utils/campImClient.js][G35]         | IM 服务 HTTP 协议                            |
+| G36       | [apps/campFriend.js][G36]            | IM 好友与发送字段                            |
+| G37       | [apps/campIm.js][G37]                | IM 消息游标、回复与状态                      |
+| G38       | [utils/shareStore.js][G38]           | 共享绑定请求 / 错误                          |
+| G39       | [apps/shareDeploy.js][G39]           | 共享库管理接口                               |
+| G40       | [utils/deploy.js][G40]               | 包版本 / 下载请求                            |
+| G41       | [utils/http.py][G41]                 | 未发现业务调用的访客 Cookie 辅助             |
 
 [G0]: https://github.com/wzq10314/astrbot_plugin_gloryofkings/blob/4d4238d2c9c2c37af7007d40dd0723308c006bb4/UPSTREAM.json
 [G1]: https://github.com/wzq10314/astrbot_plugin_gloryofkings/blob/4d4238d2c9c2c37af7007d40dd0723308c006bb4/engine/upstream/utils/api.js
@@ -1578,14 +1633,14 @@ G 系列全部固定到 GitHub 提交 `4d4238d2c9c2c37af7007d40dd0723308c006bb4`
 
 v2.5.0 当前能力如下；这是本插件的实现状态，不改变前文来源快照的验证结论。
 
-| 能力 | 当前状态 | 接口 / 说明 |
-| --- | --- | --- |
-| 微信 / QQ 登录 | 已接入 | 微信 SDK、QQ 浏览器授权 / YSDK 后通过 `/user/login` 换营地凭据 |
-| 资料、赛季与战绩 | 已接入 | `/game/koh/profile`、`/game/seasonpage`、`/game/morebattlelist` |
-| 昵称搜索、别名和战绩筛选 | 已接入 | `/search/getbytype`；全部 / 排位 / 巅峰分别使用已验证选项 0 / 1 / 4 |
-| 双方详情与地图回顾 | 已接入 | `/game/battledetail`、`/game/battleanalyze/old`；规范化轨迹、事件、死亡 / 复活和塔位 |
-| AI 对局分析 | 已实现，真实模型生成未实测 | 复用详情与回顾，经 AstrBot 模型调用；不是新增营地接口，数据契约见 26.9 |
-| 其他第三方、观战及外置服务 | 保留前文验证范围 | 未作为本插件当前数据来源接入 |
+| 能力                       | 当前状态                   | 接口 / 说明                                                                          |
+| -------------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
+| 微信 / QQ 登录             | 已接入                     | 微信 SDK、QQ 浏览器授权 / YSDK 后通过 `/user/login` 换营地凭据                       |
+| 资料、赛季与战绩           | 已接入                     | `/game/koh/profile`、`/game/seasonpage`、`/game/morebattlelist`                      |
+| 昵称搜索、别名和战绩筛选   | 已接入                     | `/search/getbytype`；全部 / 排位 / 巅峰分别使用已验证选项 0 / 1 / 4                  |
+| 双方详情与地图回顾         | 已接入                     | `/game/battledetail`、`/game/battleanalyze/old`；规范化轨迹、事件、死亡 / 复活和塔位 |
+| AI 对局分析                | 已实现，真实模型生成未实测 | 复用详情与回顾，经 AstrBot 模型调用；不是新增营地接口，数据契约见 26.9               |
+| 其他第三方、观战及外置服务 | 保留前文验证范围           | 未作为本插件当前数据来源接入                                                         |
 
 本节记录 2026-10-08 的功能开发与新增验证，补充前面源码审阅时的状态；不将一次成功响应推广为所有模式、账号或历史对局都可用。
 
@@ -1600,37 +1655,37 @@ v2.5.0 当前能力如下；这是本插件的实现状态，不改变前文来�
 
 用户在本地完成微信扫码，登录态写入本机插件数据目录，并明确指定营地 ID `489048724` 作为验证对象。使用同一登录态读到以下结果：
 
-| 项目 | 实际结果 |
-| --- | --- |
-| 登录 | 微信授权、营地换票、`encodeRes` 解码和账号持久化成功 |
-| 主页 | `/game/koh/profile` 的 `returnCode=0`，得到可用于查询的角色 |
-| 战绩 | 第一页 30 场；网页按游标读取 50 场用于统计，展示用户指定的 10 场 |
-| 所选详情 | 蓝方 / 红方各 5 名玩家，成功匹配目标角色的 `playerId` |
-| 回顾 | 返回 10 名玩家，每名 919 个轨迹采样；事件源包含 22 条战斗记录和 50 条建筑类别记录 |
-| 轨迹 | 原始坐标范围约为 `[-57,57]`；按当前投影接受 9093 个点，地图外点保留断点 |
+| 项目     | 实际结果                                                                                                         |
+| -------- | ---------------------------------------------------------------------------------------------------------------- |
+| 登录     | 微信授权、营地换票、`encodeRes` 解码和账号持久化成功                                                             |
+| 主页     | `/game/koh/profile` 的 `returnCode=0`，得到可用于查询的角色                                                      |
+| 战绩     | 第一页 30 场；网页按游标读取 50 场用于统计，展示用户指定的 10 场                                                 |
+| 所选详情 | 蓝方 / 红方各 5 名玩家，成功匹配目标角色的 `playerId`                                                            |
+| 回顾     | 返回 10 名玩家，每名 919 个轨迹采样；事件源包含 22 条战斗记录和 50 条建筑类别记录                                |
+| 轨迹     | 原始坐标范围约为 `[-57,57]`；按当前投影接受 9093 个点，地图外点保留断点                                          |
 | 击杀关联 | 从 `battle.killInfo[]` 解析 32 次击杀，用对象 ID 关联玩家，再与对应死亡时间 / 位置匹配；本次 32 次均得到死亡位置 |
-| 展示模型 | 基础事件去重 / 过滤后 70 条，补充 32 次击杀，共 102 条；不将事件数量当作推塔数 |
-| 玩家名称 | 回顾响应中的昵称可能为空，用同一详情的 `playerId` 映射补齐，本次 10 名玩家均关联成功 |
+| 展示模型 | 基础事件去重 / 过滤后 70 条，补充 32 次击杀，共 102 条；不将事件数量当作推塔数                                   |
+| 玩家名称 | 回顾响应中的昵称可能为空，用同一详情的 `playerId` 映射补齐，本次 10 名玩家均关联成功                             |
 
 原始响应仅保存在仓库外的临时联调目录，登录凭据不进入源码、测试样本或文档。仓库内新增测试使用合成数据。
 
 ### 26.3 本次确认的补充字段与处理
 
-| 原始字段 / 路径 | 当前处理 |
-| --- | --- |
-| `battleStats.joinGamePercent` | 本次为比例字符串，如 `"0.762"`，展示为百分比 |
-| `battleStats.ctrlTime / killSoldier / healCnt / buildingDamage` | 控制秒数、补刀、治疗量、建筑伤害；保留真实零值，缺失不补造 |
-| `battleStats.addFightPower` | 独立战力变化，不与累计战力混用 |
-| `maxAssist / maxJoinGamePercent / maxCtrlTime / maxBehurt` 等 | 补充助攻、参团、控制与总承伤最高标记 |
-| `dataBehaviorV2[].dataCounts[].dataNote` | 本次为类似 `"2%"` 的排名百分位；展示“前 2%”，原始 note 同时保留 |
-| `battle.killInfo[].time` | 本次毫秒时间，转换为从开局起的秒数 |
-| `battle.killInfo[].objID / killerObjID` | 分别为被击杀者 / 击杀者在对局中的对象 ID，关联 `playBaseInfoArr[].inBattleObjID`，再关联 `playID → playerId` |
-| `playBaseInfoArr[].deathPosArr[].time / coordX / coordY` | 本次死亡时间为秒，死亡坐标沿用回顾投影 |
-| `playerPosInfo[].revivePosArr` | 读取 `[x,y,秒数]`，结合死亡时间处理玩家可见性与轨迹断点 |
-| 建筑 `dtData.viewX/viewY=0/0` | 不直接画在地图中心；沿用官方 `TowerConf` / 水晶配置定位，未识别的对象不补位置 |
-| 同一建筑多次记录 | 保守展示“防御塔事件 / 水晶事件”，不宣称每条代表一次摧毁，不据此计算建筑摧毁次数 |
-| 战绩 `hero1RampageCnt / hero1Kill6Cnt` 等 | 五杀与更高连击；不再使用未经此来源确认的五杀键名 |
-| 排位的巅峰字段均为 0 | 不展示“巅峰变化 0”，避免把未参与巅峰当成有效积分变化 |
+| 原始字段 / 路径                                                 | 当前处理                                                                                                     |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `battleStats.joinGamePercent`                                   | 本次为比例字符串，如 `"0.762"`，展示为百分比                                                                 |
+| `battleStats.ctrlTime / killSoldier / healCnt / buildingDamage` | 控制秒数、补刀、治疗量、建筑伤害；保留真实零值，缺失不补造                                                   |
+| `battleStats.addFightPower`                                     | 独立战力变化，不与累计战力混用                                                                               |
+| `maxAssist / maxJoinGamePercent / maxCtrlTime / maxBehurt` 等   | 补充助攻、参团、控制与总承伤最高标记                                                                         |
+| `dataBehaviorV2[].dataCounts[].dataNote`                        | 本次为类似 `"2%"` 的排名百分位；展示“前 2%”，原始 note 同时保留                                              |
+| `battle.killInfo[].time`                                        | 本次毫秒时间，转换为从开局起的秒数                                                                           |
+| `battle.killInfo[].objID / killerObjID`                         | 分别为被击杀者 / 击杀者在对局中的对象 ID，关联 `playBaseInfoArr[].inBattleObjID`，再关联 `playID → playerId` |
+| `playBaseInfoArr[].deathPosArr[].time / coordX / coordY`        | 本次死亡时间为秒，死亡坐标沿用回顾投影                                                                       |
+| `playerPosInfo[].revivePosArr`                                  | 读取 `[x,y,秒数]`，结合死亡时间处理玩家可见性与轨迹断点                                                      |
+| 建筑 `dtData.viewX/viewY=0/0`                                   | 不直接画在地图中心；沿用官方 `TowerConf` / 水晶配置定位，未识别的对象不补位置                                |
+| 同一建筑多次记录                                                | 保守展示“防御塔事件 / 水晶事件”，不宣称每条代表一次摧毁，不据此计算建筑摧毁次数                              |
+| 战绩 `hero1RampageCnt / hero1Kill6Cnt` 等                       | 五杀与更高连击；不再使用未经此来源确认的五杀键名                                                             |
+| 排位的巅峰字段均为 0                                            | 不展示“巅峰变化 0”，避免把未参与巅峰当成有效积分变化                                                         |
 
 地图参数另对照 [营地官方回顾页面](https://camp.qq.com/h5/webdist/battle-replay/index.html) 与其 [主脚本](https://camp.qq.com/h5/webdist/battle-replay/static/js/main.b6a0acd6.js)。本次读取脚本 SHA-256 为 `302c79da6fe6bcecd960fd61a409804021cc6cee9fd5af5032cbf6bcf4d2ff44`。
 
@@ -1655,18 +1710,18 @@ v2.5.0 当前能力如下；这是本插件的实现状态，不改变前文来�
 
 使用用户保存的 QQ 凭据，独立请求营地 ID `489048724` 最近一场 `gameSeq=1791100999`，导出完整详情与回顾响应正文。正文与查询参数保存在仓库外，不导出登录凭据或鉴权头。
 
-| 原始详情字段 | 公共模型 / 展示 | 本场查询玩家的值 |
-| --- | --- | --- |
-| `totalHeroHurtCnt` | `hero_damage`，对英雄伤害及队伍占比条 | 28,461 |
-| `totalHurtCnt` | `total_damage`，总伤害 | 80,168 |
-| `totalBeheroHurtCnt` | `damage_taken`，英雄承伤及队伍占比条 | 81,670 |
-| `totalBehurtCnt` | `total_damage_taken`，总承伤；与英雄承伤分开 | 108,089 |
-| `buildingDamage` | `building_damage`，建筑伤害 | 3,339 |
-| `towerCnt` | `tower_count`，推塔数；不从回顾记录数量推算 | 1 |
-| `healCnt` | `healing`，治疗量 | 18,766 |
-| `monsterCoin` | `jungle_economy`，野怪经济 | 252 |
-| `ctrlTime / killSoldier` | 控制秒数 / 补刀 | 32 秒 / 9 |
-| `battleRecords.finalEquips / skill` | 装备与召唤师技能分开；本次六件装备、闪现 | 6 件 / `skillId=80115` |
+| 原始详情字段                        | 公共模型 / 展示                              | 本场查询玩家的值       |
+| ----------------------------------- | -------------------------------------------- | ---------------------- |
+| `totalHeroHurtCnt`                  | `hero_damage`，对英雄伤害及队伍占比条        | 28,461                 |
+| `totalHurtCnt`                      | `total_damage`，总伤害                       | 80,168                 |
+| `totalBeheroHurtCnt`                | `damage_taken`，英雄承伤及队伍占比条         | 81,670                 |
+| `totalBehurtCnt`                    | `total_damage_taken`，总承伤；与英雄承伤分开 | 108,089                |
+| `buildingDamage`                    | `building_damage`，建筑伤害                  | 3,339                  |
+| `towerCnt`                          | `tower_count`，推塔数；不从回顾记录数量推算  | 1                      |
+| `healCnt`                           | `healing`，治疗量                            | 18,766                 |
+| `monsterCoin`                       | `jungle_economy`，野怪经济                   | 252                    |
+| `ctrlTime / killSoldier`            | 控制秒数 / 补刀                              | 32 秒 / 9              |
+| `battleRecords.finalEquips / skill` | 装备与召唤师技能分开；本次六件装备、闪现     | 6 件 / `skillId=80115` |
 
 交战事件使用 `battle.startTime/endTime` 的毫秒值换算持续秒数，`camp1MemNum/camp2MemNum` 展示人数；缺失人数时仅根据 `joinMemInfo` 的唯一对象 ID 统计。`joinMemInfo[].objID` 与 `playBaseInfoArr[].inBattleObjID → playID → matchInfo.playerId` 关联，补齐参与英雄。击杀比分按 `killInfo[].killerCamp` 统计，重复击杀记录去重；明细缺失保留未知，不补造 `0:0`。本次最早交战为 `0:28–0:38`，蓝方 2 人 / 红方 1 人、击杀 `1:0`。
 
@@ -1698,6 +1753,8 @@ v2.5.0 当前能力如下；这是本插件的实现状态，不改变前文来�
 
 ### 26.9 AI 对局分析的数据契约
 
+页面分析入口位于单局详情顶部右侧，打开单局后即可使用；分析进度和结果位于比赛摘要下方的公共区域，不挂在回放容器内。“地图回顾”标签已更名为“对局回放”。2.5.1 优先查询数据库缓存，未命中时才执行后台详情与回放查询。
+
 AI 分析复用既有战绩定位、单局详情和地图回顾接口，不新增上游接口。通过对局标识锁定同一场，单局详情仅查询一次，再复用其中的 `player_id/game_seq/game_svr/relay_svr` 获取回顾。
 
 程序内 `ANALYSIS_DATA_PROMPT` 作为固定系统提示词解释数据，可配置的 `analysis.prompt` 仅定义分析任务；`analysis.select_provider` 明确选择 AstrBot 模型，网页和聊天共用 `Context.llm_generate(chat_provider_id=..., system_prompt=..., prompt=...)`。原锐评路径已移除。
@@ -1708,4 +1765,64 @@ AI 分析复用既有战绩定位、单局详情和地图回顾接口，不新�
 
 说明保留已确认的限制：重复建筑记录不等于多次摧毁，`hurt_total_raw` 不冒充详情建筑伤害，交战分组与击杀不重复计数，轨迹靠近不自动等同参战，`ecoDistance` 正负对应阵营未独立确认。模型须区分数据事实和推测，不能补写视野、技能、兵线或指挥信息。
 
-插件新增页面路由：`POST analysis/start` 接收 `keyword/game_seq/index`，只返回随机临时任务标识；`GET analysis/status?task_id=...` 只返回状态、进度提示及最终文字，不接收客户端提示词或对局 JSON。生成最长 180 秒，同时最多 3 个任务；任务状态保留 15 分钟、最多 32 条，卸载时取消。这里是本插件的页面 API，不是新增营地接口。
+插件页面路由：`POST analysis/start` 接收 `keyword/game_seq/index`，未命中缓存时返回随机临时任务标识，2.5.1 命中缓存时直接返回 `status=done/text`；`GET analysis/status?task_id=...` 返回状态、进度提示及最终文字，不接收客户端提示词或对局 JSON。生成最长 180 秒，同时最多 3 个任务；任务状态保留 15 分钟、最多 32 条，卸载时取消。这里是本插件的页面 API，不是新增营地接口。
+
+## 27. 2.5.1 分析缓存、订阅与页面验证
+
+本节记录 2026-10-09 的插件实现与发布检查。新增能力复用既有营地接口，不增加外部数据源；下列页面路由由 AstrBot 插件桥接调用，不是腾讯营地接口。
+
+### 27.1 分析缓存与存储边界
+
+`BattleAnalysisService` 统一处理网页和聊天分析。成功且格式验证通过的最终文字写入 `battle_analyses`，`game_seq` 为主键，保存 `text/created_at`；不保存模型输入、提示词、账号凭据或原始营地响应。已知对局 ID 时直接查询缓存；聊天只提供近期序号时，先查询详情确定 ID，再读取缓存，未命中才请求回顾及模型。
+
+`analysis.cache_retention_days` 默认 150，填写正整数；保留期从结果保存时刻计算，读取不续期。启动、每小时及缓存读取时删除过期记录。每场使用独立锁串行生成和清除；清除后同时移除该场临时任务记录，防止继续读取已删除结果。
+
+| 页面路由              | 参数与返回                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------ |
+| `POST analysis/start` | `keyword/game_seq/index`；命中缓存直接返回 `status=done/text`，否则返回 `task_id/status=pending` |
+| `GET analysis/status` | `task_id`；返回 `status/message/text`，任务缺失或过期时失败                                      |
+| `GET analysis/cache`  | `game_seq`；返回 `available/text/created_at`，未命中时不调用模型                                 |
+| `POST analysis/clear` | `game_seq`；删除该场结果并返回 `deleted`，不清理其它对局                                         |
+
+数据库位置仍为 `data/plugin_data/astrbot_plugin_gok/gok.db`。`aliases` 保存名称映射，`battle_analyses` 保存有期限的分析文字；下面的订阅表保存订阅配置、最新快照与会话游标，不采用 AI 缓存的 150 天清理规则。标准玩家查询仍实时读取营地，登录凭据单独保存在忽略提交的 `camp_auth.json`。
+
+### 27.2 订阅轮询与最新事件策略
+
+`SubscriptionService` 复用 `get_profile` 和 `fetch_battles`，状态检查只取主页，不请求赛季页；战绩读取最新一页并从中选择具有有效 `game_seq` 和明确胜负的最新完成对局，不把未完成或结果未知的记录当成新战绩。没有关联会话的 `(kind,camp_id)` 不请求营地；同类订阅同一个玩家只查询一次，再分发给其接收会话。
+
+`subscriptions.status_poll_interval/battle_poll_interval` 分别默认 60 / 120 秒，必须为正整数；间隔在轮询轮次结束后计算，失败不会让整个服务退出。两类模块保留上次和下次轮询时刻，页面单独每 5 秒刷新，不增加营地查询次数。删除关联后，在下次上游请求前重新确认仍有接收会话。
+
+- **状态**：将 `0` 归为离线，`1/2` 归为在线；只推送 `0→1/2` 和 `1/2→0`。未知码、字段缺失与查询失败不覆盖已有有效比较状态；`1↔2` 不推送。首次关联先建立基准，失败的状态消息不积压补发。
+- **战绩**：每个会话独立记录已发送的 `game_seq`；发送成功才推进游标，失败时下次仍只比较那时最新的一场。例如 A 已发送，B、C 失败，恢复后最新是 D，只尝试 D，不遍历补发 B、C。临时空列表或较旧响应不会重置已有完成对局游标。
+- **重启与重新关联**：配置、快照和游标存入 SQLite，重启后按已有游标比较最新一场；解除后重新关联视为新接收目标，重新建立基准，跳过暂停期间历史。
+
+数据表为 `subscription_targets`（每种订阅/营地 ID 一份最新快照）、`push_sessions`（完整会话 ID、最近发送时刻和发送错误）、`push_links`（会话与目标的多对多关系和独立游标）。外键删除目标或会话时清理相关关联。
+
+### 27.3 会话路由、指令与页面接口
+
+主动发送遵循 [AstrBot 官方文档](https://docs.astrbot.app/dev/star/guides/send-message.html#主动消息)：保存发起指令的 `event.unified_msg_origin`，后台构造 `MessageChain().message(text)` 并调用 `context.send_message(session_id, chain)`。会话 ID 包含平台实例、消息类型和会话标识，不只填写群号；`GroupMessage/FriendMessage` 用于群聊/私聊，实际发送能力取决于所接入的平台。
+
+`订阅状态/订阅战绩` 在当前会话添加关联；`查看订阅` 返回该会话的列表和完整 ID；`取消订阅 ID [状态/战绩/全部]` 默认只取消当前会话的两类关联，不影响其它会话。确认与主动推送均使用文本，不自动触发模型。
+
+| 页面路由                    | 参数与返回                                                                                                                                                                                               |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET subscriptions/list`    | 返回 `modules.status/modules.battle` 的运行状态、间隔、轮询时刻、目标快照与会话列表                                                                                                                      |
+| `POST subscriptions/update` | `action=add_target/delete_target` 使用 `kind/camp_id`；`action=save_session` 使用完整 `session_id` 和字符串数组 `status_ids/battle_ids`；`action=delete_session` 使用 `session_id`。成功返回更新后的总览 |
+
+“订阅系统”位于现有导航最后，分为状态、战绩、会话三个模块。状态与战绩目标可分别增删；一个会话可以选择多个目标。未选任何接收会话时显示暂停，并保留此前已读取的最近快照。查询、详情与其它管理页统一使用公共外层留白和标题栏，详情样式限定在查询页；切换导航回到顶部，`scrollbar-gutter: stable` 避免页面高度变化造成水平位移。
+
+`功能/帮助` 加入 `query_output`，默认使用浅色 HTML 功能指南；模板复用配置的指令前缀与默认场数，图片失败时回退完整指令文本。
+
+### 27.4 公开 AppID 告警核对
+
+GitHub 告警类型 `tencent_wechat_api_app_id` 可识别 `APPID_WX`。该值是营地客户端公开的微信应用标识，既有来源 [G2] 也将其用于二维码 URL 的 `appid` 参数；本插件没有与其配套的微信 AppSecret。源码拆分前后的文件及文档引用会让同一个告警记录多个历史位置，不能据此认定发生多次个人账号凭据泄露。
+
+本次只核对了告警与调用用途，没有修改该协议常量、轮换用户凭据或自动关闭 GitHub 告警。仓库所有者核对命中内容后，可依据 [GitHub 告警处理说明](https://docs.github.com/en/code-security/how-tos/manage-security-alerts/manage-secret-scanning-alerts/resolving-alerts#closing-alerts) 按误报关闭并备注公开标识用途；真实 `camp_auth.json/token/userKey` 不属于这个说明的范围。
+
+### 27.5 发布验证范围
+
+- 八个离线套件共 464 项检查全部通过，覆盖数据、插件装配、模板、AI 分析和订阅；订阅 20 项回归覆盖首次基准、状态切换、失败恢复只推最新、多会话隔离、暂停/恢复、重启游标、删除关联、轮询时刻及页面参数校验。
+- 缓存验证使用临时 SQLite，覆盖关闭后重开、网页与指令互相复用、过期清理、清除后再分析、同场并发、失败回答和数据库保存失败。
+- Playwright 使用本地页面桥接与合成数据检查缓存查看/清除、订阅目标和多会话编辑、失效/恢复、字面文字展示，以及 1920 / 1440 / 1024 / 390px 下四页切换、资料、战绩、单局详情和错误状态。页面身份、非空内容、错误遮罩、控制台、截图及交互检查通过。
+- 发布前执行 Ruff、前端构建同步、JavaScript 语法及 Node 回顾时间轴检查。截图、测试桥接脚本和数据库均位于仓库外，不包含在插件发布文件中。
+- 主动消息与模型使用测试桩，没有在本轮向真实群聊/私聊发送，也没有重新登录或请求真实营地玩家数据；2.5.0 的真实登录与只读查询证据保留原日期，用户远程宿主部署仍未验证。

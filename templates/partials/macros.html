@@ -10,11 +10,17 @@ css='hero-image') -%}
   {% else %}<span class="image-fallback">{{ label[:1] or '·' }}</span>{% endif
   %}
 </span>
-{%- endmacro %} {% macro identity(profile) -%}
+{%- endmacro %} {% macro identity(profile, show_game_status=false) -%}
 <div class="player-identity">
   {{ image(profile.avatar, profile.nickname, 'avatar') }}
   <div class="player-main">
     <strong>{{ profile.nickname or '未知角色' }}</strong>
+    {% if show_game_status %}
+    <span
+      class="game-status {{ {0: 'offline', 1: 'online', 2: 'playing'}.get(profile.get('game_online'), 'unknown') }}"
+      >游戏状态 · {{ profile.game_status or '未知' }}</span
+    >
+    {% endif %}
     <div class="muted">
       营地 ID {{ profile.camp_id }}{% if profile.server_name or
       profile.area_name %} · {{ profile.server_name or profile.area_name }}{%

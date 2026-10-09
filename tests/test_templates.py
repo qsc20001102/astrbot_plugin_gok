@@ -72,6 +72,8 @@ PROFILE = {
     "area_name": "微信区",
     "role_id": "111",
     "server_name": "微信389区",
+    "game_online": 0,
+    "game_status": "离线",
     "current_rank": "最强王者",
     "current_stars": 12,
     "rank_label": "最强王者",
@@ -159,6 +161,8 @@ CASES: dict[str, dict] = {
             "gold_count": 0,
             "mvp_count": 0,
             "nickname": "新玩家",
+            "game_online": None,
+            "game_status": "未知",
             "hide_match": True,
         },
         "season_heroes": [],
@@ -297,6 +301,16 @@ async def main() -> int:
         check(f"战绩页包含「{token}」", token in battle_html)
 
     profile_html = rendered.get("profile.html", "")
+    for state, label in ((0, "离线"), (1, "在线"), (2, "游戏中"), (None, "未知")):
+        data = {
+            **CASES["profile.html"],
+            "profile": {**PROFILE, "game_online": state, "game_status": label},
+        }
+        source = await repo.get("profile.html")
+        html = env.from_string(secure_render_template(source)).render(
+            data=data, data_time="2026-10-08 12:00:00"
+        )
+        check(f"资料图片展示游戏状态「{label}」", f"游戏状态 · {label}" in html)
     for token in ("沈梦溪", "100%", "6,200", "微信389区", "最强王者"):
         check(f"资料页包含「{token}」", token in profile_html)
     # 隐藏战绩的玩家应出现提示

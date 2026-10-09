@@ -8,7 +8,7 @@ import {
   safeImageUrl,
 } from "../lib/dom.js";
 
-export function playerIdentity(profile = {}) {
+export function playerIdentity(profile = {}, showGameStatus = false) {
   const rank =
     profile.rank_label && profile.rank_label !== "未知"
       ? profile.rank_label
@@ -16,7 +16,10 @@ export function playerIdentity(profile = {}) {
   return html`<div class="player-identity">
     ${image(profile.avatar, profile.nickname, "avatar")}
     <div>
-      <div class="player-name text-wrap">${e(profile.nickname)}</div>
+      <div class="player-name-row">
+        <div class="player-name text-wrap">${e(profile.nickname)}</div>
+        ${showGameStatus ? html`<span class="game-status ${{ 0: "offline", 1: "online", 2: "playing" }[profile.game_online] || "unknown"}">游戏状态 · ${e(profile.game_status || "未知")}</span>` : ""}
+      </div>
       <div class="player-meta">
         营地 ID
         ${e(profile.camp_id)}${profile.area_name ? ` · ${e(profile.area_name)}` : ""}
@@ -56,7 +59,7 @@ export function profileView(data) {
     ["金牌次数", profile.gold_count],
     ["区服", profile.server_name || profile.area_name],
   ];
-  return html`${playerIdentity(profile)}${profile.hide_match ? '<div class="inline-notice">该玩家隐藏了个人战绩。</div>' : ""}
+  return html`${playerIdentity(profile, true)}${profile.hide_match ? '<div class="inline-notice">该玩家隐藏了个人战绩。</div>' : ""}
     <dl class="profile-stats">
       ${metrics
         .map(
@@ -196,7 +199,7 @@ export function battleView(data, option, limit) {
     </div>
     <p class="list-note">
       显示 ${rows.length} 场 · 本次统计 ${summary.total ?? rows.length}
-      场。点击对局查看双方表现与地图回顾。
+      场。点击对局查看双方表现与对局回放。
     </p>`;
 }
 

@@ -31,6 +31,8 @@ class PlayerProfile:
     area_text: str = ""
     role_id: str = ""
     server_name: str = ""
+    # gameOnline 是三态数值；缺失及未知码不默认当作离线。
+    game_online: int | None = None
     current_rank: str = "未知"
     rank_icon: str = ""
     rank_stars_icon: str = ""
@@ -59,6 +61,15 @@ class PlayerProfile:
         return {"wechat": "微信区", "qq": "QQ区"}.get(self.area, self.area)
 
     @property
+    def game_status(self) -> str:
+        """按统一约定生成游戏状态文案。
+
+        Returns:
+            离线、在线、游戏中或未知。
+        """
+        return {0: "离线", 1: "在线", 2: "游戏中"}.get(self.game_online, "未知")
+
+    @property
     def rank_label(self) -> str:
         return strip_rank_stars(self.current_rank) or "未知"
 
@@ -77,6 +88,8 @@ class PlayerProfile:
             "area_name": self.area_name,
             "role_id": self.role_id,
             "server_name": self.server_name,
+            "game_online": self.game_online,
+            "game_status": self.game_status,
             "current_rank": self.rank_label,
             "current_stars": self.current_stars,
             "rank_label": self.rank_label,
@@ -157,6 +170,8 @@ def parse_profile(payload: dict[str, Any], camp_id: str = "") -> PlayerProfile:
     hide_match = bool(_as_int(role.get("hideMatch"), 0)) or bool(
         _as_int(data.get("hideMatch"), 0)
     )
+    state = str(role.get("gameOnline")).strip()
+    game_online = int(state) if state in {"0", "1", "2"} else None
 
     return PlayerProfile(
         camp_id=camp_id or str(data.get("targetUserId") or ""),
@@ -166,6 +181,7 @@ def parse_profile(payload: dict[str, Any], camp_id: str = "") -> PlayerProfile:
         area_text=area_text,
         role_id=str(role.get("roleId") or ""),
         server_name=_first_str(role, "serverName"),
+        game_online=game_online,
         current_rank=rank_name or "未知",
         rank_icon=rank_icon,
         rank_stars_icon=rank_stars_icon,

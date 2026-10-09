@@ -41,9 +41,7 @@ export function initQuery(onData) {
     byId("btn-query-battle").disabled = value;
   }
   function detailMode(active) {
-    document
-      .querySelector(".main-content")
-      .classList.toggle("detail-mode", active && !byId("panel-query").hidden);
+    byId("panel-query").classList.toggle("detail-mode", active);
     byId("query-form").hidden = active;
     document.querySelector("#panel-query > .page-heading").hidden = active;
   }
@@ -148,6 +146,11 @@ export function initQuery(onData) {
       if (generation !== state.generation) return;
       detailMode(true);
       root.innerHTML = detailShell(response.data);
+      state.analysisCleanup = mountAnalysis(root, {
+        keyword: state.keyword,
+        gameSeq,
+        index,
+      });
       const players = [
         ...(response.data.blue || []),
         ...(response.data.red || []),
@@ -186,7 +189,7 @@ export function initQuery(onData) {
           }
           if (replayLoaded || replayBusy) return;
           replayBusy = true;
-          byId("detail-replay").innerHTML = loading("正在读取地图回顾…");
+          byId("detail-replay").innerHTML = loading("正在读取对局回放…");
           try {
             const replay = await get("query", {
               keyword: state.keyword,
@@ -199,16 +202,11 @@ export function initQuery(onData) {
               byId("detail-replay"),
               replay.data,
             );
-            state.analysisCleanup = mountAnalysis(byId("detail-replay"), {
-              keyword: state.keyword,
-              gameSeq,
-              index,
-            });
             replayLoaded = true;
           } catch (error) {
             if (generation === state.generation)
               byId("detail-replay").innerHTML = html`<div class="replay-state">
-                <h3>地图回顾暂不可用</h3>
+                <h3>对局回放暂不可用</h3>
                 <p>${e(errorText(error))}</p>
                 <button id="retry-replay" class="button outline" type="button">
                   重试

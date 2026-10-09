@@ -35,6 +35,17 @@ class TextOutputs(unittest.TestCase):
         self.assertNotIn("None", text)
         self.assertNotIn("胜率 0%", text)
 
+    def test_profile_text_includes_game_status(self):
+        for label in ("离线", "在线", "游戏中", "未知"):
+            data = {
+                **CASES["profile.html"],
+                "profile": {**CASES["profile.html"]["profile"], "game_status": label},
+            }
+            text = format_service_text(self.result("profile.html", data))
+            self.assertIn(f"状态：{label}", text)
+        text = format_service_text(self.result("profile.html", {"profile": {}}))
+        self.assertIn("状态：未知", text)
+
     def test_battles_keep_order_mode_and_both_results(self):
         text = format_service_text(self.result("battle.html", CASES["battle.html"]))
         self.assertIn("全部战绩｜测试玩家", text)

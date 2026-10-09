@@ -1,4 +1,4 @@
-/* 地图回顾：官方底图、时间轴与可定位的事件列表。 */
+/* 对局回放：官方底图、时间轴与可定位的事件列表。 */
 .replay-layout {
   display: grid;
   /* 桌面按视口高度限制地图宽度，保留正方形投影并让播放控件可见。 */
@@ -312,45 +312,6 @@
 .replay-state .button {
   margin-top: 18px;
 }
-.analysis-panel {
-  margin-top: 28px;
-  padding: 26px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-.analysis-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-}
-.analysis-heading h2 {
-  font-size: 20px;
-  margin: 0 0 8px;
-}
-.analysis-heading p,
-.analysis-status {
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.6;
-}
-.analysis-status {
-  margin: 18px 0 0;
-}
-.analysis-status.error {
-  color: var(--danger);
-}
-.analysis-result {
-  margin: 20px 0 0;
-  padding: 24px;
-  background: var(--surface-2, #fff);
-  border-radius: 6px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font: inherit;
-  line-height: 1.9;
-}
 @media (max-width: 1100px) {
   .replay-layout {
     grid-template-columns: minmax(0, 1fr) minmax(250px, 0.9fr);
@@ -370,18 +331,6 @@
   }
 }
 @media (max-width: 800px) {
-  .analysis-panel {
-    padding: 18px;
-  }
-  .analysis-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 14px;
-  }
-  .analysis-result {
-    padding: 18px;
-    font-size: 14px;
-  }
   .replay-layout {
     grid-template-columns: 1fr;
   }

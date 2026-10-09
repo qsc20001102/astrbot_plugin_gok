@@ -8,14 +8,19 @@ from astrbot.api.web import request
 
 from .analysis import BattleAnalysisService
 from .service import GokService
+from .subscriptions import SubscriptionService
 
 
 class WebRoutes:
     def __init__(
-        self, service: GokService, analysis: BattleAnalysisService | None = None
+        self,
+        service: GokService,
+        analysis: BattleAnalysisService | None = None,
+        subscriptions: SubscriptionService | None = None,
     ) -> None:
         self.service = service
         self.analysis = analysis
+        self.subscriptions = subscriptions
 
     @staticmethod
     async def _payload() -> dict[str, Any]:

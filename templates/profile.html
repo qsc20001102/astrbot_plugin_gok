@@ -12,7 +12,7 @@
     <!-- GOK:REPORT_MACROS -->
     {% set profile = data.profile %}
     <h1>玩家资料</h1>
-    {{ identity(profile) }} {% if data.hide_match or profile.hide_match %}
+    {{ identity(profile, true) }} {% if data.hide_match or profile.hide_match %}
     <div class="notice">该玩家已隐藏战绩</div>
     {% endif %}
     <dl class="profile-stats">

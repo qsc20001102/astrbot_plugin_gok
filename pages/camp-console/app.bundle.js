@@ -1,4 +1,4 @@
-//本文件由tools/build_frontend.py自动生成，勿直接编辑；源码SHA256=445ca01ae5d419de165f3e456bf59e0f297431caa5799e3b70d6e8de7f664174
+//本文件由tools/build_frontend.py自动生成，勿直接编辑；源码SHA256=f72e8adaf43fc17d520643741578aff86328b78077cd52ac798276240629a8ec
 (() => {
   // pages/camp-console/lib/api.js
   var bridge = window.AstrBotPluginPage;
@@ -37,6 +37,7 @@
   >`;
   }
   var paths = {
+    bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
     search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
     user: '<circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',
     tag: '<path d="M3 3h8l10 10-8 8L3 11z"/><circle cx="7.5" cy="7.5" r=".7"/>',
@@ -499,12 +500,15 @@
   }
 
   // pages/camp-console/views/player.js
-  function playerIdentity(profile = {}) {
+  function playerIdentity(profile = {}, showGameStatus = false) {
     const rank = profile.rank_label && profile.rank_label !== "未知" ? profile.rank_label : "段位未返回";
     return html`<div class="player-identity">
     ${image(profile.avatar, profile.nickname, "avatar")}
     <div>
-      <div class="player-name text-wrap">${escapeHtml(profile.nickname)}</div>
+      <div class="player-name-row">
+        <div class="player-name text-wrap">${escapeHtml(profile.nickname)}</div>
+        ${showGameStatus ? html`<span class="game-status ${{ 0: "offline", 1: "online", 2: "playing" }[profile.game_online] || "unknown"}">游戏状态 · ${escapeHtml(profile.game_status || "未知")}</span>` : ""}
+      </div>
       <div class="player-meta">
         营地 ID
         ${escapeHtml(profile.camp_id)}${profile.area_name ? ` · ${escapeHtml(profile.area_name)}` : ""}
@@ -542,7 +546,7 @@
       ["金牌次数", profile.gold_count],
       ["区服", profile.server_name || profile.area_name]
     ];
-    return html`${playerIdentity(profile)}${profile.hide_match ? '<div class="inline-notice">该玩家隐藏了个人战绩。</div>' : ""}
+    return html`${playerIdentity(profile, true)}${profile.hide_match ? '<div class="inline-notice">该玩家隐藏了个人战绩。</div>' : ""}
     <dl class="profile-stats">
       ${metrics.map(
       ([label, value]) => html`<div>
@@ -657,7 +661,7 @@
     </div>
     <p class="list-note">
       显示 ${rows.length} 场 · 本次统计 ${summary.total ?? rows.length}
-      场。点击对局查看双方表现与地图回顾。
+      场。点击对局查看双方表现与对局回放。
     </p>`;
   }
   function selectionView(data) {
@@ -707,14 +711,15 @@
   }
   function detailShell(data) {
     const match = data.match || {};
-    return html`<button
-      class="button text detail-back"
-      id="back-to-battles"
-      type="button"
-    >
-      ${icon("back")}返回战绩
-    </button>
-    <h1>单局详情</h1>
+    return html`<header class="page-heading">
+      <div>
+        <h1>单局详情</h1>
+        <p>双方表现与对局回放</p>
+      </div>
+      <button class="button outline" id="back-to-battles" type="button">
+        ${icon("back")}返回战绩
+      </button>
+    </header>
     <div class="detail-heading">
       <span class="detail-result ${match.result === "lose" ? "lose" : ""}"
         >${escapeHtml(match.result_text)}</span
@@ -737,7 +742,43 @@
           >对局时长</small
         >
       </div>
+      <div class="detail-analysis-actions" aria-label="AI 对局分析操作">
+        <button
+          id="analyze-match"
+          class="button primary"
+          type="button"
+          aria-controls="detail-analysis"
+          aria-expanded="false"
+          disabled
+        >
+          分析本场
+        </button>
+        <button
+          id="view-analysis"
+          class="button outline"
+          type="button"
+          aria-controls="detail-analysis"
+          aria-expanded="false"
+          disabled
+        >
+          分析结果
+        </button>
+        <button
+          id="clear-analysis"
+          class="button outline"
+          type="button"
+          disabled
+        >
+          清除缓存
+        </button>
+      </div>
     </div>
+    <section
+      id="detail-analysis"
+      class="analysis-panel"
+      aria-label="AI 对局分析结果"
+      hidden
+    ></section>
     <div class="detail-tabs" role="tablist" aria-label="详情内容">
       <button
         class="active"
@@ -753,7 +794,7 @@
         aria-selected="false"
         type="button"
       >
-        地图回顾
+        对局回放
       </button>
     </div>
     <div id="detail-overview" role="tabpanel">${overview(data)}</div>
@@ -899,7 +940,7 @@
   function renderReplay(root, data) {
     if (!data.available) {
       root.innerHTML = html`<div class="replay-state">
-      <h3>暂无地图回顾</h3>
+      <h3>暂无对局回放</h3>
       <p>${escapeHtml(data.message || "这场对局的回顾数据暂未返回")}</p>
     </div>`;
       return () => {
@@ -956,7 +997,7 @@
           id="replay-play"
           class="replay-play"
           type="button"
-          aria-label="播放回顾"
+          aria-label="播放回放"
         >
           ${icon("play")}</button
         ><span id="replay-time" class="replay-time"
@@ -969,7 +1010,7 @@
           max="${duration}"
           value="0"
           step="1"
-          aria-label="对局回顾时间"
+          aria-label="对局回放时间"
         /><select id="replay-speed" class="replay-speed" aria-label="播放速度">
           <option value="1">1×</option>
           <option value="2">2×</option>
@@ -1278,23 +1319,60 @@
 
   // pages/camp-console/features/analysis.js
   function mountAnalysis(root, { keyword, gameSeq, index }) {
-    const panel = document.createElement("section");
-    panel.className = "analysis-panel";
+    const panel = root.querySelector("#detail-analysis"), button = root.querySelector("#analyze-match"), resultButton = root.querySelector("#view-analysis"), clearButton = root.querySelector("#clear-analysis");
     panel.innerHTML = html`<div class="analysis-heading">
       <div>
         <h2>AI 对局分析</h2>
         <p>结合双方表现、全员轨迹和关键事件，分析胜负原因与关键转折。</p>
       </div>
-      <button class="button primary" type="button">分析本场</button>
     </div>
     <p class="analysis-status" role="status" aria-live="polite">
       点击分析本场，获取职业教练视角的对局复盘。
     </p>
+    <button class="button outline" id="retry-analysis-cache" type="button" hidden>
+      重新读取缓存
+    </button>
     <pre class="analysis-result" hidden></pre>`;
-    root.append(panel);
-    const button = panel.querySelector("button"), status = panel.querySelector(".analysis-status"), output = panel.querySelector(".analysis-result");
-    let disposed = false, timer = null, taskId = "";
+    const status = panel.querySelector(".analysis-status"), output = panel.querySelector(".analysis-result"), retryButton = panel.querySelector("#retry-analysis-cache");
+    let disposed = false, timer = null, taskId = "", available = false, cacheKnown = false, busy = false;
     const current = () => !disposed && panel.isConnected;
+    const updateButtons = () => {
+      button.disabled = busy || available || !cacheKnown;
+      resultButton.disabled = busy || !available || !cacheKnown;
+      clearButton.disabled = busy || !available || !cacheKnown;
+      retryButton.disabled = busy;
+    };
+    const showError = (error) => {
+      panel.hidden = false;
+      status.textContent = errorText(error);
+      status.classList.add("error");
+    };
+    async function readCache(show = false) {
+      const cache = await get("analysis/cache", { game_seq: gameSeq });
+      if (!current()) return;
+      cacheKnown = true;
+      available = cache.available;
+      retryButton.hidden = true;
+      button.textContent = "分析本场";
+      if (!available) {
+        output.hidden = true;
+        output.textContent = "";
+        button.textContent = "分析本场";
+      }
+      if (show || !panel.hidden) {
+        if (show) {
+          panel.hidden = false;
+          resultButton.setAttribute("aria-expanded", "true");
+        }
+        status.classList.remove("error");
+        status.textContent = available ? show || !output.hidden ? "已读取保存的分析结果。" : "本场已有分析缓存，点击分析结果查看。" : "本场暂无分析缓存，可以点击分析本场。";
+        if (show || !output.hidden) {
+          output.textContent = available ? cache.text : "";
+          output.hidden = !available;
+        }
+      }
+      updateButtons();
+    }
     async function poll() {
       try {
         const job = await get("analysis/status", { task_id: taskId });
@@ -1305,27 +1383,34 @@
           output.textContent = job.text;
           output.hidden = false;
           taskId = "";
-          button.disabled = false;
-          button.textContent = "重新分析";
+          busy = false;
+          available = true;
+          cacheKnown = true;
+          button.textContent = "分析本场";
+          updateButtons();
         } else if (job.status === "error") {
           taskId = "";
-          button.disabled = false;
+          busy = false;
           button.textContent = "重试分析";
+          updateButtons();
         } else {
           timer = setTimeout(poll, 1500);
         }
       } catch (error) {
         if (!current()) return;
-        status.textContent = errorText(error);
-        status.classList.add("error");
-        button.disabled = false;
+        showError(error);
+        busy = false;
         if (status.textContent.includes("分析任务已过期或不存在")) taskId = "";
         button.textContent = taskId ? "重试连接" : "重试分析";
+        updateButtons();
       }
     }
     button.addEventListener("click", async () => {
-      button.disabled = true;
+      panel.hidden = false;
+      button.setAttribute("aria-expanded", "true");
+      busy = true;
       button.textContent = "分析中…";
+      updateButtons();
       status.classList.remove("error");
       if (taskId) {
         await poll();
@@ -1341,19 +1426,93 @@
           index
         });
         if (!current()) return;
-        taskId = job.task_id;
-        await poll();
+        if (job.status === "done") {
+          output.textContent = job.text;
+          output.hidden = false;
+          status.textContent = "已读取保存的分析结果。";
+          available = true;
+          busy = false;
+          button.textContent = "分析本场";
+          updateButtons();
+        } else {
+          taskId = job.task_id;
+          await poll();
+        }
       } catch (error) {
         if (!current()) return;
-        status.textContent = errorText(error);
-        status.classList.add("error");
-        button.disabled = false;
+        showError(error);
+        busy = false;
         button.textContent = "重试分析";
+        updateButtons();
       }
     });
+    resultButton.addEventListener("click", async () => {
+      busy = true;
+      updateButtons();
+      try {
+        await readCache(true);
+      } catch (error) {
+        if (current()) showError(error);
+      } finally {
+        if (current()) {
+          busy = false;
+          updateButtons();
+        }
+      }
+    });
+    clearButton.addEventListener("click", async () => {
+      busy = true;
+      clearButton.textContent = "清除中…";
+      updateButtons();
+      try {
+        await post("analysis/clear", { game_seq: gameSeq });
+        if (!current()) return;
+        available = false;
+        cacheKnown = true;
+        taskId = "";
+        clearTimeout(timer);
+        output.textContent = "";
+        output.hidden = true;
+        panel.hidden = false;
+        status.classList.remove("error");
+        status.textContent = "本场分析缓存已清除，可以重新分析。";
+        resultButton.setAttribute("aria-expanded", "false");
+        button.textContent = "分析本场";
+      } catch (error) {
+        if (current()) showError(error);
+      } finally {
+        if (current()) {
+          busy = false;
+          clearButton.textContent = "清除缓存";
+          updateButtons();
+        }
+      }
+    });
+    const refreshCache = async () => {
+      if (busy || taskId || !current()) return;
+      busy = true;
+      updateButtons();
+      try {
+        await readCache();
+      } catch (error) {
+        if (!current()) return;
+        cacheKnown = false;
+        showError(error);
+        retryButton.hidden = false;
+      } finally {
+        if (current()) {
+          busy = false;
+          updateButtons();
+        }
+      }
+    };
+    retryButton.addEventListener("click", refreshCache);
+    window.addEventListener("focus", refreshCache);
+    refreshCache();
     return () => {
       disposed = true;
       clearTimeout(timer);
+      window.removeEventListener("focus", refreshCache);
     };
   }
 
@@ -1385,7 +1544,7 @@
       byId("btn-query-battle").disabled = value;
     }
     function detailMode(active) {
-      document.querySelector(".main-content").classList.toggle("detail-mode", active && !byId("panel-query").hidden);
+      byId("panel-query").classList.toggle("detail-mode", active);
       byId("query-form").hidden = active;
       document.querySelector("#panel-query > .page-heading").hidden = active;
     }
@@ -1481,6 +1640,11 @@
         if (generation !== state.generation) return;
         detailMode(true);
         root.innerHTML = detailShell(response.data);
+        state.analysisCleanup = mountAnalysis(root, {
+          keyword: state.keyword,
+          gameSeq,
+          index
+        });
         const players = [
           ...response.data.blue || [],
           ...response.data.red || []
@@ -1516,7 +1680,7 @@
             }
             if (replayLoaded || replayBusy) return;
             replayBusy = true;
-            byId("detail-replay").innerHTML = loading("正在读取地图回顾…");
+            byId("detail-replay").innerHTML = loading("正在读取对局回放…");
             try {
               const replay = await get("query", {
                 keyword: state.keyword,
@@ -1529,16 +1693,11 @@
                 byId("detail-replay"),
                 replay.data
               );
-              state.analysisCleanup = mountAnalysis(byId("detail-replay"), {
-                keyword: state.keyword,
-                gameSeq,
-                index
-              });
               replayLoaded = true;
             } catch (error) {
               if (generation === state.generation)
                 byId("detail-replay").innerHTML = html`<div class="replay-state">
-                <h3>地图回顾暂不可用</h3>
+                <h3>对局回放暂不可用</h3>
                 <p>${escapeHtml(errorText(error))}</p>
                 <button id="retry-replay" class="button outline" type="button">
                   重试
@@ -1569,6 +1728,261 @@
     return { run, pauseReplay: () => state.replayCleanup?.() };
   }
 
+  // pages/camp-console/features/subscriptions.js
+  function initSubscriptions() {
+    const root = byId("panel-subscriptions");
+    let data = { modules: {}, sessions: [] }, timer = null, generation = 0, loading2 = false, changing = false, closeEditor = null;
+    const time = (value) => value ? new Intl.DateTimeFormat("zh-CN", {
+      timeZone: "Asia/Shanghai",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    }).format(new Date(value * 1e3)) : "—";
+    function render(next) {
+      data = next;
+      for (const kind of ["status", "battle"]) {
+        const module = data.modules[kind] || {}, rows = module.targets || [], active = module.active_count > 0;
+        byId(`${kind}-running`).textContent = module.running ? "轮询中" : active ? "运行中" : "已暂停";
+        byId(`${kind}-running`).classList.toggle("active", active);
+        byId(`${kind}-poll-times`).innerHTML = html`<div>
+          <span>上次轮询</span><strong>${escapeHtml(time(module.last_poll_at))}</strong>
+        </div>
+        <div>
+          <span>下次轮询</span
+          ><strong>${active ? escapeHtml(time(module.next_poll_at)) : "暂停"}</strong>
+        </div>
+        <p>
+          每 ${escapeHtml(module.interval)} 秒检查 · ${escapeHtml(module.active_count || 0)}
+          个订阅正在轮询
+        </p>
+        ${module.error ? html`<p class="danger">${escapeHtml(module.error)}</p>` : ""}`;
+        byId(`${kind}-subscription-list`).innerHTML = rows.length ? rows.map((row) => {
+          const snapshot = row.snapshot || {}, match = snapshot.match;
+          return html`<article class="subscription-row">
+                <div class="subscription-row-main">
+                  <div class="subscription-row-title">
+                    <strong>${escapeHtml(row.nickname || `营地 ${row.camp_id}`)}</strong
+                    >${kind === "status" ? html`<span class="subscription-badge ${snapshot.game_online === 0 ? "" : snapshot.game_online === 1 || snapshot.game_online === 2 ? "active" : ""}">${escapeHtml(snapshot.game_status || "待检查")}</span>` : ""}
+                  </div>
+                  <p class="subscription-meta">
+                    营地 ID ${escapeHtml(row.camp_id)} ·
+                    ${row.session_count ? `关联 ${escapeHtml(row.session_count)} 个会话` : "未关联会话，已暂停"}
+                  </p>
+                  ${kind === "status" ? html`<p class="subscription-meta">段位：${escapeHtml(snapshot.rank || "—")} · 最近检查：${escapeHtml(time(row.last_poll_at))}</p>` : match ? html`<div class="subscription-match"><span class="${match.result === "win" ? "success" : "danger"}">${escapeHtml(match.result_text)}</span> · ${escapeHtml(match.hero_name)} · ${escapeHtml(match.kills)}/${escapeHtml(match.deaths)}/${escapeHtml(match.assists)}<small>${escapeHtml(match.mode_name)} · ${escapeHtml(match.played_at)} · ${escapeHtml(match.honor_text || "无荣誉")}</small></div>` : html`<p class="subscription-meta">尚未读取已完成对局</p>`}${row.error ? html`<p class="subscription-error">${escapeHtml(row.error)}</p>` : ""}
+                </div>
+                <button
+                  class="button text icon-button danger"
+                  type="button"
+                  data-remove-target="${escapeHtml(row.camp_id)}"
+                  data-kind="${kind}"
+                  aria-label="删除${kind === "status" ? "状态" : "战绩"}订阅 ${escapeHtml(row.camp_id)}"
+                >
+                  ${icon("trash")}
+                </button>
+              </article>`;
+        }).join("") : empty("还没有订阅，添加营地 ID 后关联推送会话");
+      }
+      byId("push-session-list").innerHTML = data.sessions.length ? data.sessions.map(
+        (session) => html`<article class="session-row">
+                <div class="session-main">
+                  <strong class="session-id">${escapeHtml(session.session_id)}</strong>
+                  <div class="session-chips">
+                    ${session.subscriptions.length ? session.subscriptions.map((item) => html`<span class="session-chip">${item.kind === "status" ? "状态" : "战绩"} · ${escapeHtml(item.camp_id)}</span>`).join("") : '<span class="subscription-meta">尚未选择订阅</span>'}
+                  </div>
+                  <p class="subscription-meta">
+                    最近推送：${escapeHtml(time(session.last_sent_at))}
+                  </p>
+                  ${session.error ? html`<p class="subscription-error">${escapeHtml(session.error)}</p>` : ""}
+                </div>
+                <div class="session-actions">
+                  <button
+                    class="button outline small"
+                    type="button"
+                    data-edit-session="${escapeHtml(session.session_id)}"
+                  >
+                    编辑订阅</button
+                  ><button
+                    class="button text small danger"
+                    type="button"
+                    data-remove-session="${escapeHtml(session.session_id)}"
+                  >
+                    删除会话
+                  </button>
+                </div>
+              </article>`
+      ).join("") : empty("添加会话，为订阅选择消息接收位置");
+    }
+    async function reload() {
+      if (loading2 || changing) return;
+      loading2 = true;
+      const version = ++generation;
+      try {
+        const next = await get("subscriptions/list");
+        if (version !== generation) return;
+        render(next);
+        byId("subscription-notice").hidden = true;
+      } catch (error) {
+        if (version !== generation) return;
+        const notice = byId("subscription-notice");
+        notice.hidden = false;
+        notice.textContent = errorText(error);
+      } finally {
+        loading2 = false;
+      }
+    }
+    async function mutate(payload, button) {
+      if (changing) throw new Error("正在保存，请稍候");
+      changing = true;
+      ++generation;
+      if (button) button.disabled = true;
+      try {
+        render(await post("subscriptions/update", payload));
+        byId("subscription-notice").hidden = true;
+      } finally {
+        changing = false;
+        if (button?.isConnected) button.disabled = false;
+      }
+    }
+    for (const kind of ["status", "battle"]) {
+      byId(`add-${kind}-subscription`).addEventListener(
+        "submit",
+        async (event) => {
+          event.preventDefault();
+          const form = event.currentTarget, input = form.elements.camp_id;
+          try {
+            await mutate(
+              { action: "add_target", kind, camp_id: input.value.trim() },
+              form.querySelector("button")
+            );
+            input.value = "";
+            showToast("已添加订阅，请在会话推送中选择接收位置");
+          } catch (error) {
+            showToast(errorText(error), "error");
+          }
+        }
+      );
+    }
+    function editSession(session = null) {
+      byId("session-edit-title").textContent = session ? "编辑会话订阅" : "添加推送会话";
+      const input = byId("push-session-id");
+      input.value = session?.session_id || "";
+      input.readOnly = Boolean(session);
+      const chosen = new Set(
+        (session?.subscriptions || []).map((row) => `${row.kind}:${row.camp_id}`)
+      );
+      byId("session-subscription-options").innerHTML = ["status", "battle"].map(
+        (kind) => html`<fieldset>
+            <legend>${kind === "status" ? "订阅状态" : "订阅战绩"}</legend>
+            ${(data.modules[kind]?.targets || []).length ? data.modules[kind].targets.map(
+          (row) => html`<label class="session-choice"
+                          ><input
+                            type="checkbox"
+                            name="${kind}_ids"
+                            value="${escapeHtml(row.camp_id)}"
+                            ${chosen.has(`${kind}:${row.camp_id}`) ? "checked" : ""}
+                          /><span
+                            >${escapeHtml(row.nickname || "待检查玩家")}<small
+                              >${escapeHtml(row.camp_id)}</small
+                            ></span
+                          ></label
+                        >`
+        ).join("") : '<p class="subscription-hint">请先添加营地 ID</p>'}
+          </fieldset>`
+      ).join("");
+      closeEditor = openModal("session-edit-mask");
+    }
+    byId("add-push-session").addEventListener("click", () => editSession());
+    const cancel = () => {
+      closeEditor?.();
+      closeEditor = null;
+    };
+    byId("cancel-push-session").addEventListener("click", cancel);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") cancel();
+    });
+    byId("session-edit-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      try {
+        await mutate(
+          {
+            action: "save_session",
+            session_id: byId("push-session-id").value.trim(),
+            status_ids: [
+              ...form.querySelectorAll('[name="status_ids"]:checked')
+            ].map((el) => el.value),
+            battle_ids: [
+              ...form.querySelectorAll('[name="battle_ids"]:checked')
+            ].map((el) => el.value)
+          },
+          byId("save-push-session")
+        );
+        cancel();
+        showToast("会话订阅已保存");
+      } catch (error) {
+        showToast(errorText(error), "error");
+      }
+    });
+    root.addEventListener("click", async (event) => {
+      const remove = event.target.closest("[data-remove-target]"), edit = event.target.closest("[data-edit-session]"), removeSession = event.target.closest("[data-remove-session]");
+      if (edit)
+        editSession(
+          data.sessions.find(
+            (row) => row.session_id === edit.dataset.editSession
+          )
+        );
+      if (remove && await askConfirm(
+        "删除订阅",
+        "将删除该营地 ID 的订阅及所有会话关联。",
+        "删除"
+      )) {
+        try {
+          await mutate(
+            {
+              action: "delete_target",
+              kind: remove.dataset.kind,
+              camp_id: remove.dataset.removeTarget
+            },
+            remove
+          );
+        } catch (error) {
+          showToast(errorText(error), "error");
+        }
+      }
+      if (removeSession && await askConfirm(
+        "删除推送会话",
+        "该会话将停止接收推送，没有其他接收会话的订阅会暂停轮询。",
+        "删除"
+      )) {
+        try {
+          await mutate(
+            {
+              action: "delete_session",
+              session_id: removeSession.dataset.removeSession
+            },
+            removeSession
+          );
+        } catch (error) {
+          showToast(errorText(error), "error");
+        }
+      }
+    });
+    byId("refresh-subscriptions").addEventListener("click", reload);
+    document.addEventListener("gok:pagechange", (event) => {
+      clearInterval(timer);
+      if (event.detail.page === "subscriptions") {
+        reload();
+        timer = setInterval(() => {
+          if (!document.hidden) reload();
+        }, 5e3);
+      }
+    });
+    window.addEventListener("beforeunload", () => clearInterval(timer));
+  }
+
   // pages/camp-console/app.js
   async function main() {
     hydrateIcons();
@@ -1578,6 +1992,7 @@
     );
     const login = initLogin(() => accounts.reload());
     const query = initQuery(() => accounts.reload());
+    initSubscriptions();
     document.addEventListener("gok:pagechange", (event) => {
       if (event.detail.page !== "query") query.pauseReplay();
     });

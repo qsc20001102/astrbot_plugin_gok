@@ -60,6 +60,7 @@ def _profile(data: dict[str, Any]) -> str:
     """
     profile = data.get("profile") or {}
     lines = _identity(profile, "资料")
+    lines[0] += f" · 状态：{profile.get('game_status') or '未知'}"
     if profile.get("season_games", 0) > 0:
         lines.append(
             f"赛季 {_number(profile['season_games'])}场 / {_number(profile.get('season_wins'))}胜"

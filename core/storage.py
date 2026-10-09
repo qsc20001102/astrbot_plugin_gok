@@ -1,8 +1,4 @@
-"""本地数据仓库：仅保存营地 ID、真实游戏昵称与独立人工别名的映射。
-
-这里**不做任何数据缓存** —— 玩家概况与对局记录每次都实时向营地接口请求，
-不落库、不聚合、不增量同步。营地侧数据变化后立即反映到查询结果。
-"""
+"""Local storage for player aliases and persistent AI battle analysis results."""
 
 from __future__ import annotations
 
@@ -25,6 +21,13 @@ _SCHEMA = (
         updated_at REAL NOT NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS battle_analyses (
+        game_seq   TEXT PRIMARY KEY,
+        text       TEXT NOT NULL,
+        created_at REAL NOT NULL
+    )
+    """,
 )
 
 # 早期版本曾把玩家概况与对局写进本地库作为缓存；既然不再缓存数据，
@@ -33,7 +36,7 @@ _OBSOLETE_TABLES = ("matches", "players")
 
 
 class GokStorage:
-    """插件本地数据访问层（仅角色别名）。"""
+    """Local data access for aliases and analysis results."""
 
     def __init__(self, db: AsyncSQLiteDB) -> None:
         self.db = db
@@ -70,8 +73,86 @@ class GokStorage:
             await self.db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_aliases_role_name ON aliases(role_name)"
             )
+            await self.db.execute(_SCHEMA[1])
+            await self.db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_battle_analyses_created_at "
+                "ON battle_analyses(created_at)"
+            )
         await self._drop_obsolete_cache_tables()
-        logger.debug("本地数据表已就绪（仅角色别名）")
+        logger.debug("本地数据表已就绪（角色别名和 AI 对局分析）")
+
+    async def prune_analyses(self, retention_days: int) -> None:
+        """Delete analysis results beyond the configured retention period.
+
+        Args:
+            retention_days: Number of days to retain results after saving.
+
+        Returns:
+            None.
+        """
+        await self.db.execute(
+            "DELETE FROM battle_analyses WHERE created_at<=?",
+            (time.time() - retention_days * 86400,),
+        )
+
+    async def get_analysis(
+        self, game_seq: str, retention_days: int
+    ) -> dict[str, Any] | None:
+        """Read an unexpired result without extending its lifetime.
+
+        Args:
+            game_seq: Unique battle identifier shared by all entry points.
+            retention_days: Current configured retention period.
+
+        Returns:
+            Saved result and creation time, or None if not cached.
+        """
+        async with self.db.transaction():
+            await self.prune_analyses(retention_days)
+            return await self.db.fetch_one(
+                "SELECT game_seq,text,created_at FROM battle_analyses WHERE game_seq=?",
+                (game_seq,),
+            )
+
+    async def save_analysis(self, game_seq: str, text: str) -> None:
+        """Persist a successfully validated analysis by battle ID.
+
+        Args:
+            game_seq: Unique battle identifier.
+            text: Final validated analysis text.
+
+        Returns:
+            None.
+
+        Raises:
+            ValueError: The identifier or analysis text is empty.
+        """
+        if not game_seq.strip() or not text.strip():
+            raise ValueError("对局标识或分析内容不能为空")
+        await self.db.execute(
+            "INSERT INTO battle_analyses (game_seq,text,created_at) VALUES (?,?,?) "
+            "ON CONFLICT(game_seq) DO UPDATE SET text=excluded.text, "
+            "created_at=excluded.created_at",
+            (game_seq, text, time.time()),
+        )
+
+    async def delete_analysis(self, game_seq: str) -> bool:
+        """Delete only the requested battle's persisted result.
+
+        Args:
+            game_seq: Unique battle identifier.
+
+        Returns:
+            Whether a saved result existed before deletion.
+        """
+        async with self.db.transaction():
+            existing = await self.db.fetch_one(
+                "SELECT game_seq FROM battle_analyses WHERE game_seq=?", (game_seq,)
+            )
+            await self.db.execute(
+                "DELETE FROM battle_analyses WHERE game_seq=?", (game_seq,)
+            )
+            return existing is not None
 
     async def _drop_obsolete_cache_tables(self) -> None:
         for table in _OBSOLETE_TABLES:

@@ -2,180 +2,208 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <title>王者荣耀数据查询工具 · 功能说明</title>
+    <meta name="viewport" content="width=1200, height=1" />
+    <title>王者荣耀数据查询工具 · 功能指南</title>
     <style>
-      :root {
-        --bg: #0f1523;
-        --panel: #182034;
-        --panel-2: #1f2941;
-        --gold: #e8c37a;
-        --gold-dim: #b99a5b;
-        --text: #e8edf7;
-        --muted: #93a0bb;
-        --blue: #5aa9e6;
-      }
       * {
         box-sizing: border-box;
-        margin: 0;
-        padding: 0;
       }
       body {
-        width: 760px;
-        background: linear-gradient(160deg, #0f1523 0%, #131b2c 100%);
-        color: var(--text);
-        font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
-        padding: 22px;
+        margin: 0;
+        padding: 40px;
+        min-width: 960px;
+        width: 100%;
+        background: #f5f7fb;
+        color: #172234;
+        font:
+          17px/1.6 "Microsoft YaHei",
+          "PingFang SC",
+          system-ui,
+          sans-serif;
       }
-      .head {
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+      .header {
         display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 18px;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 28px;
       }
-      .head .bar {
-        width: 5px;
-        height: 30px;
-        background: linear-gradient(180deg, var(--gold), #8a6d34);
-        border-radius: 3px;
+      .eyebrow {
+        display: block;
+        color: #3158d6;
+        font-size: 13px;
+        letter-spacing: 2px;
+        margin-bottom: 8px;
       }
-      .head h1 {
-        font-size: 22px;
-        letter-spacing: 1px;
+      h1 {
+        font-size: 34px;
+        letter-spacing: -0.7px;
       }
-      .head .sub {
-        color: var(--muted);
-        font-size: 12px;
-        margin-top: 3px;
+      .subtitle {
+        color: #718096;
+        margin-top: 8px;
+        font-size: 15px;
+      }
+      .badge {
+        color: #3158d6;
+        background: #eaf0ff;
+        padding: 7px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1.12fr 1fr;
+        gap: 20px;
       }
       .card {
-        background: var(--panel);
-        border: 1px solid #26304a;
-        border-radius: 10px;
-        padding: 14px 16px;
-        margin-bottom: 12px;
+        border: 1px solid #e5e9f0;
+        border-radius: 12px;
+        padding: 24px;
+        background: white;
       }
       .card h2 {
+        font-size: 21px;
+        margin-bottom: 16px;
+      }
+      .card h2 span {
+        color: #3158d6;
+        font-size: 13px;
+        margin-right: 10px;
+      }
+      .command {
+        padding: 12px 0;
+        border-top: 1px solid #edf0f5;
+      }
+      code {
+        display: block;
+        color: #213965;
+        font:
+          16px/1.6 "Microsoft YaHei",
+          Consolas,
+          monospace;
+        overflow-wrap: anywhere;
+      }
+      .command p {
+        color: #718096;
         font-size: 14px;
-        color: var(--gold);
-        margin-bottom: 10px;
-        padding-left: 9px;
-        border-left: 3px solid var(--gold-dim);
-        letter-spacing: 0.5px;
+        margin-top: 3px;
       }
-      .cmd {
-        display: flex;
-        align-items: baseline;
-        gap: 10px;
-        padding: 6px 0;
-        border-bottom: 1px dashed #232d45;
-      }
-      .cmd:last-child {
-        border-bottom: none;
-      }
-      .cmd code {
-        flex: 0 0 205px;
-        background: var(--panel-2);
-        border: 1px solid #2b3752;
-        border-radius: 6px;
-        padding: 3px 8px;
-        font-size: 13px;
-        color: var(--blue);
-        font-family: Consolas, "Courier New", monospace;
-      }
-      .cmd span {
-        font-size: 13px;
-        color: #c6d0e4;
-        line-height: 1.5;
+      .right {
+        display: grid;
+        gap: 20px;
       }
       .note {
-        font-size: 12px;
-        color: var(--muted);
-        line-height: 1.75;
-      }
-      .note b {
-        color: var(--gold-dim);
-        font-weight: 600;
+        color: #718096;
+        font-size: 13px;
+        margin-top: 16px;
+        padding: 12px 14px;
+        border-radius: 6px;
+        background: #f5f7fb;
       }
       .foot {
-        margin-top: 14px;
-        text-align: right;
-        font-size: 11px;
-        color: #6b7893;
+        margin-top: 22px;
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        color: #718096;
+        font-size: 12px;
       }
     </style>
   </head>
   <body>
-    <div class="head">
-      <div class="bar"></div>
+    {% set prefix = data.prefix | default('') %}
+    <header class="header">
       <div>
-        <h1>王者营地 数据查询</h1>
-        <div class="sub">数据来源：王者营地官方接口（扫码登录后查询）</div>
+        <span class="eyebrow">王者荣耀数据查询工具</span>
+        <h1>功能指南</h1>
+        <p class="subtitle">查询战绩 · 分析对局 · 订阅玩家动态</p>
+      </div>
+      <span class="badge">网页与聊天共用</span>
+    </header>
+    <div class="grid">
+      <section class="card">
+        <h2><span>01</span>玩家查询与分析</h2>
+        <div class="command">
+          <code>{{ prefix }}战绩 营地ID/别名/昵称 [场数]</code>
+          <p>全部模式近期战绩，默认 {{ data.battle_limit | default(10) }} 场</p>
+        </div>
+        <div class="command">
+          <code>{{ prefix }}排位战绩 营地ID/别名/昵称 [场数]</code>
+          <p>查看排位赛战绩</p>
+        </div>
+        <div class="command">
+          <code>{{ prefix }}巅峰战绩 营地ID/别名/昵称 [场数]</code>
+          <p>查看巅峰赛战绩</p>
+        </div>
+        <div class="command">
+          <code>{{ prefix }}资料 营地ID/别名/昵称</code>
+          <p>游戏状态、当前段位与赛季统计</p>
+        </div>
+        <div class="command">
+          <code>{{ prefix }}对局 营地ID/别名/昵称 [序号]</code>
+          <p>查看双方阵容、出装与本场数据</p>
+        </div>
+        <div class="command">
+          <code>{{ prefix }}分析 营地ID/别名/昵称 [序号]</code>
+          <p>AI 分析胜负原因；已有分析优先读取缓存</p>
+        </div>
+        <p class="note">
+          参数支持营地 ID、游戏昵称和别名。同名结果回复序号选择。AI
+          分析需先在插件配置中选择模型。
+        </p>
+      </section>
+      <div class="right">
+        <section class="card">
+          <h2><span>02</span>订阅与会话推送</h2>
+          <div class="command">
+            <code>{{ prefix }}订阅状态 营地ID/别名</code>
+            <p>向当前会话推送上线、离线变化</p>
+          </div>
+          <div class="command">
+            <code>{{ prefix }}订阅战绩 营地ID/别名</code>
+            <p>推送最新已完成对局，包含胜负、战绩和荣誉</p>
+          </div>
+          <div class="command">
+            <code>{{ prefix }}查看订阅</code>
+            <p>查看当前会话的订阅与完整会话 ID</p>
+          </div>
+          <div class="command">
+            <code>{{ prefix }}取消订阅 营地ID/别名 [状态/战绩/全部]</code>
+            <p>默认取消当前会话的两类订阅</p>
+          </div>
+          <p class="note">
+            只推送最新变化，不补推中间缺失战绩。网页“订阅系统”可管理营地 ID
+            和多个接收会话。
+          </p>
+        </section>
+        <section class="card">
+          <h2><span>03</span>角色、登录与帮助</h2>
+          <div class="command">
+            <code>{{ prefix }}角色</code>
+            <p>查看游戏昵称、营地 ID 和别名</p>
+          </div>
+          <div class="command">
+            <code>{{ prefix }}营地登录 / {{ prefix }}营地账号</code>
+            <p>查看登录入口、账号与冷却状态</p>
+          </div>
+          <div class="command">
+            <code>{{ prefix }}功能 / {{ prefix }}帮助</code>
+            <p>按插件配置显示图片或文本功能指南</p>
+          </div>
+        </section>
       </div>
     </div>
-
-    <div class="card">
-      <h2>查询指令（参数支持营地 ID、别名或昵称）</h2>
-      <div class="cmd">
-        <code>战绩 [ID/别名/昵称] [场数]</code
-        ><span>全部模式近期战绩，默认 10 场</span>
-      </div>
-      <div class="cmd">
-        <code>排位战绩 [ID/别名/昵称] [场数]</code><span>仅查询排位战绩</span>
-      </div>
-      <div class="cmd">
-        <code>巅峰战绩 [ID/别名/昵称] [场数]</code><span>仅查询巅峰战绩</span>
-      </div>
-      <div class="cmd">
-        <code>资料 [ID/别名]</code><span>段位、赛季胜率、本赛季常用英雄</span>
-      </div>
-      <div class="cmd">
-        <code>对局 [ID/别名] [序号]</code><span>查看某一场的十人详细数据</span>
-      </div>
-      <div class="cmd">
-        <code>分析 [ID/别名/昵称] [序号]</code
-        ><span>仅输出 AI 对局分析，需在插件配置中选择模型</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>角色名称映射</h2>
-      <div class="note">
-        查询成功自动保存游戏昵称与营地
-        ID，只能在管理页设置独立别名；同名结果回复序号选择，60 秒超时结束。
-      </div>
-      <div class="cmd">
-        <code>角色</code><span>按配置输出昵称、营地 ID 和别名的图片或文本</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>登录与账号</h2>
-      <div class="cmd">
-        <code>营地登录</code><span>查看登录状态与扫码入口</span>
-      </div>
-      <div class="cmd">
-        <code>营地账号</code><span>查看已登录账号与冷却状态</span>
-      </div>
-      <div class="cmd">
-        <code>功能 / 帮助 / 王者功能</code><span>显示本说明</span>
-      </div>
-      <div class="note" style="margin-top: 8px">
-        首次使用需在 <b>AstrBot 管理面板 → 插件 → 本插件页面</b> 用微信或 QQ
-        扫码登录王者营地； 登录态失效时同样回到该页面重新扫码。
-        页面「检测全部登录态」可逐个验证账号，频控或网络异常会单独提示。
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>说明</h2>
-      <div class="note">
-        · 需在游戏中或营地中<b>开放战绩</b>，对方隐藏战绩时无法查询。<br />
-        ·
-        所有数据都是<b>实时查询</b>，插件不缓存任何玩家数据，因此看到的战绩永远是最新的。<br />
-        · 支持登录多个营地账号，触发频控时自动切换。
-      </div>
-    </div>
-
-    <div class="foot">数据时间：{{ data_time }}</div>
+    <footer class="foot">
+      <span
+        >首次使用：AstrBot 插件页面 → 账号管理 → 微信 / QQ 扫码登录<br />玩家需开放战绩；输出方式和轮询时间可在插件配置中修改。</span
+      ><span>{{ data_time }}</span>
+    </footer>
   </body>
 </html>

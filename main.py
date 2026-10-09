@@ -40,6 +40,7 @@ from .core.message import MessageSender
 from .core.service import GokService
 from .core.sqlite import AsyncSQLiteDB
 from .core.storage import GokStorage
+from .core.subscriptions import SubscriptionService
 from .core.webui import WebUIService
 
 PLUGIN_NAME = "astrbot_plugin_gok"
@@ -64,12 +65,12 @@ class PlayerSelectionFilter(SessionFilter):
 @register(
     PLUGIN_NAME,
     "飞翔大野猪",
-    "通过王者营地官方接口实时查询王者荣耀玩家数据（扫码登录，无需第三方接口）",
-    "2.5.0",
+    "营地直连查询、AI 分析缓存与上下线/战绩订阅推送（微信或 QQ 扫码登录）",
+    "2.5.1",
     "https://github.com/qsc20001102/astrbot_plugin_gok",
 )
 class GokPlugin(Star):
-    """王者荣耀数据查询工具：战绩 / 资料 / 对局详情 / AI 分析，支持角色别名。
+    """Camp queries, aliases, persistent AI analysis and subscription push.
 
     首次使用需在 AstrBot 管理面板的插件页面用微信或 QQ 扫码登录王者营地。
     """
@@ -91,7 +92,7 @@ class GokPlugin(Star):
         self.webui.register(context, PLUGIN_NAME)
 
         logger.info(
-            "GOK 插件已初始化（前缀：%s · 实时查询不缓存 · 英雄目录 %d 条）",
+            "GOK 插件已初始化（前缀：%s · 实时查询 / AI 缓存 / 订阅推送 · 英雄目录 %d 条）",
             self.prefix_text if self.prefix_enabled else "未启用",
             hero_repository.count,
         )
@@ -167,7 +168,8 @@ class GokPlugin(Star):
             self.login,
         )
         self.analysis = BattleAnalysisService(self.service, self.context, self.conf)
-        self.webui = WebUIService(self.service, self.analysis)
+        self.subscriptions = SubscriptionService(self.service, self.context, self.conf)
+        self.webui = WebUIService(self.service, self.analysis, self.subscriptions)
 
     # ------------------------------------------------------------------ 生命周期
     async def initialize(self) -> None:
@@ -176,6 +178,8 @@ class GokPlugin(Star):
             await self.db.connect()
             await self.storage.initialize()
             await self.auth_store.ensure_user_keys()
+            await self.analysis.initialize()
+            await self.subscriptions.initialize()
         except Exception:
             logger.exception("GOK 插件初始化失败")
             raise
@@ -200,6 +204,8 @@ class GokPlugin(Star):
             await asyncio.gather(*selection_tasks, return_exceptions=True)
         self._selection_tasks.clear()
         self._pending_choices.clear()
+        if getattr(self, "subscriptions", None) is not None:
+            await self.subscriptions.close()
         if getattr(self, "analysis", None) is not None:
             await self.analysis.close()
         if getattr(self, "login", None) is not None:
@@ -225,6 +231,10 @@ class GokPlugin(Star):
             "资料": self.cmd_profile,
             "对局": self.cmd_detail,
             "分析": self.cmd_analysis,
+            "订阅战绩": self.cmd_subscribe_battle,
+            "订阅状态": self.cmd_subscribe_status,
+            "查看订阅": self.cmd_subscriptions,
+            "取消订阅": self.cmd_unsubscribe,
             # 角色别名
             "角色": self.cmd_alias_list,
             # 账号
@@ -437,24 +447,43 @@ class GokPlugin(Star):
         return selected
 
     async def cmd_helps(self, event: AstrMessageEvent) -> None:
-        """功能说明。"""
+        """Send help using the configured text or image output.
+
+        Args:
+            event: Current conversation.
+
+        Returns:
+            None.
+        """
         prefix = self.prefix_text if self.prefix_enabled else ""
         text = (
             "王者荣耀数据查询工具\n"
             f"{prefix}战绩 营地ID/别名/昵称 [场数]：全部模式战绩\n"
             f"{prefix}排位战绩 营地ID/别名/昵称 [场数]：排位战绩\n"
             f"{prefix}巅峰战绩 营地ID/别名/昵称 [场数]：巅峰战绩\n"
-            f"{prefix}资料 营地ID/角色名：角色与赛季资料\n"
+            f"{prefix}资料 营地ID/角色名：角色、游戏状态与赛季资料\n"
             f"{prefix}对局 营地ID/角色名 [序号]：双方对局详情与出装\n"
             f"{prefix}分析 营地ID/角色名 [序号]：AI 分析本场胜负原因\n"
             f"{prefix}角色：游戏昵称、营地ID与别名\n"
+            f"{prefix}订阅状态 营地ID/别名：向当前会话推送上下线\n"
+            f"{prefix}订阅战绩 营地ID/别名：向当前会话推送最新已完成对局\n"
+            f"{prefix}查看订阅：查看当前会话订阅和完整会话ID\n"
+            f"{prefix}取消订阅 营地ID/别名 [状态/战绩/全部]：取消当前会话订阅\n"
             f"{prefix}功能：查看本说明\n"
             f"{prefix}营地登录 / {prefix}营地账号：查看账号状态\n"
             "名称先匹配别名、再匹配游戏昵称，库中没有时在线搜索；多结果回复序号选择。\n"
             "查询成功会自动保存营地 ID 与真实游戏昵称；人工别名在管理页设置。\n"
-            "战绩、资料、对局、角色可在插件配置中选择图片或文本输出。"
+            "战绩、资料、对局、角色、功能可在插件配置中选择图片或文本输出。\n"
+            "订阅只推送最新变化，不补推中间缺失战绩；未关联会话的订阅暂停轮询。"
         )
-        await event.send(event.plain_result(text))
+        result = self.service.ok(
+            {"text": text, "prefix": prefix, "battle_limit": self.default_limit},
+            temp="helps.html",
+        )
+        if self.query_output == "image":
+            await self.sender.image_only(event, result)
+        else:
+            await event.send(event.plain_result(text))
 
     async def cmd_battle(
         self, event: AstrMessageEvent, name: str = "", limit: int = 0
@@ -546,6 +575,106 @@ class GokPlugin(Star):
     async def cmd_alias_list(self, event: AstrMessageEvent) -> None:
         """角色：按现有输出配置发送角色表格图片或简明文本。"""
         await self.sender.run(event, self.service.list_aliases, style=self.query_output)
+
+    async def cmd_subscribe_status(
+        self, event: AstrMessageEvent, name: str = ""
+    ) -> None:
+        """Subscribe the current conversation to online/offline changes.
+
+        Args:
+            event: Current conversation.
+            name: Camp ID, nickname or alias.
+
+        Returns:
+            None.
+        """
+        if not name:
+            await event.send(
+                event.plain_result("请提供营地 ID 或别名，例如：订阅状态 123456789")
+            )
+            return
+        camp_id = await self._resolve_query_player(event, name)
+        if camp_id is not None:
+            await self.sender.run(
+                event,
+                lambda: self.subscriptions.subscribe(
+                    "status", camp_id, event.unified_msg_origin
+                ),
+            )
+
+    async def cmd_subscribe_battle(
+        self, event: AstrMessageEvent, name: str = ""
+    ) -> None:
+        """Subscribe the current conversation to its player's latest completed match.
+
+        Args:
+            event: Current conversation.
+            name: Camp ID, nickname or alias.
+
+        Returns:
+            None.
+        """
+        if not name:
+            await event.send(
+                event.plain_result("请提供营地 ID 或别名，例如：订阅战绩 123456789")
+            )
+            return
+        camp_id = await self._resolve_query_player(event, name)
+        if camp_id is not None:
+            await self.sender.run(
+                event,
+                lambda: self.subscriptions.subscribe(
+                    "battle", camp_id, event.unified_msg_origin
+                ),
+            )
+
+    async def cmd_subscriptions(self, event: AstrMessageEvent) -> None:
+        """List the current conversation's subscriptions and full session ID.
+
+        Args:
+            event: Current conversation.
+
+        Returns:
+            None.
+        """
+        await self.sender.run(
+            event, lambda: self.subscriptions.list_session(event.unified_msg_origin)
+        )
+
+    async def cmd_unsubscribe(
+        self, event: AstrMessageEvent, name: str = "", category: str = "全部"
+    ) -> None:
+        """Remove status, battle or both subscriptions from this conversation.
+
+        Args:
+            event: Current conversation.
+            name: Camp ID, nickname or alias.
+            category: 状态, 战绩 or 全部.
+
+        Returns:
+            None.
+        """
+        if not name:
+            await event.send(
+                event.plain_result(
+                    "请提供营地 ID 或别名，例如：取消订阅 123456789 [状态/战绩/全部]"
+                )
+            )
+            return
+        if category not in {"状态", "战绩", "全部"}:
+            await event.send(
+                event.plain_result("取消类型请选择「状态」「战绩」或「全部」")
+            )
+            return
+        camp_id = await self._resolve_query_player(event, name)
+        if camp_id is not None:
+            kind = {"状态": "status", "战绩": "battle", "全部": ""}[category]
+            await self.sender.run(
+                event,
+                lambda: self.subscriptions.unsubscribe(
+                    camp_id, event.unified_msg_origin, kind
+                ),
+            )
 
     async def cmd_login(self, event: AstrMessageEvent) -> None:
         """营地登录：查看登录状态与扫码入口。"""

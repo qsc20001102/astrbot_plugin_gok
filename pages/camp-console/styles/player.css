@@ -9,6 +9,31 @@
   width: 84px;
   height: 84px;
 }
+.player-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.game-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.game-status.online {
+  color: var(--success);
+  background: #eef8f2;
+}
+.game-status.playing {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
 .player-name {
   font-size: 25px;
   font-weight: 700;
@@ -195,14 +220,6 @@
 .honor-image img {
   object-fit: contain;
 }
-.main-content.detail-mode {
-  padding-top: 18px;
-}
-.detail-mode .detail-back {
-  padding-left: 0;
-  margin-bottom: 6px;
-  min-height: 26px;
-}
 .detail-mode .detail-heading {
   padding: 14px 0 18px;
 }
@@ -280,9 +297,6 @@
   font-size: 12px;
   color: var(--muted);
 }
-.detail-back {
-  margin-bottom: 10px;
-}
 .detail-heading {
   display: flex;
   align-items: center;
@@ -290,6 +304,52 @@
   padding: 18px 0 24px;
   border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
+}
+/* 分析入口和结果属于单局公共区域，不依赖回放标签页加载。 */
+.detail-analysis-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.analysis-panel {
+  margin-top: 28px;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.analysis-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.analysis-heading h2 {
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+.analysis-heading p,
+.analysis-status {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.analysis-status {
+  margin: 18px 0 0;
+}
+.analysis-status.error {
+  color: var(--danger);
+}
+.analysis-result {
+  margin: 20px 0 0;
+  padding: 24px;
+  background: var(--surface-2, #fff);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.9;
 }
 .detail-result {
   font-size: 25px;
@@ -607,6 +667,18 @@
   }
 }
 @media (max-width: 800px) {
+  .analysis-panel {
+    padding: 18px;
+  }
+  .analysis-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .analysis-result {
+    padding: 18px;
+    font-size: 14px;
+  }
   .player-identity {
     gap: 14px;
     flex-wrap: wrap;
@@ -727,6 +799,10 @@
   }
   .detail-heading {
     gap: 16px;
+  }
+  .detail-analysis-actions {
+    width: 100%;
+    margin-left: 0;
   }
   .detail-fact {
     font-size: 12px;

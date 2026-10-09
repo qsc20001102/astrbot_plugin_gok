@@ -12,6 +12,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SUITES = (
+    ("订阅与消息推送", "test_subscriptions.py"),
     ("AI 对局分析", "test_analysis.py"),
     ("简明指令文本", "test_text_outputs.py"),
     ("QQ 登录与地图回顾", "test_expansion.py"),

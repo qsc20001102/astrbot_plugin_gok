@@ -20,6 +20,7 @@
 }
 html {
   color-scheme: light;
+  scrollbar-gutter: stable;
 }
 body {
   margin: 0;

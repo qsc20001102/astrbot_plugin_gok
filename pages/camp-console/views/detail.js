@@ -27,14 +27,15 @@ function shareMeter(value) {
 
 export function detailShell(data) {
   const match = data.match || {};
-  return html`<button
-      class="button text detail-back"
-      id="back-to-battles"
-      type="button"
-    >
-      ${icon("back")}返回战绩
-    </button>
-    <h1>单局详情</h1>
+  return html`<header class="page-heading">
+      <div>
+        <h1>单局详情</h1>
+        <p>双方表现与对局回放</p>
+      </div>
+      <button class="button outline" id="back-to-battles" type="button">
+        ${icon("back")}返回战绩
+      </button>
+    </header>
     <div class="detail-heading">
       <span class="detail-result ${match.result === "lose" ? "lose" : ""}"
         >${e(match.result_text)}</span
@@ -57,7 +58,43 @@ export function detailShell(data) {
           >对局时长</small
         >
       </div>
+      <div class="detail-analysis-actions" aria-label="AI 对局分析操作">
+        <button
+          id="analyze-match"
+          class="button primary"
+          type="button"
+          aria-controls="detail-analysis"
+          aria-expanded="false"
+          disabled
+        >
+          分析本场
+        </button>
+        <button
+          id="view-analysis"
+          class="button outline"
+          type="button"
+          aria-controls="detail-analysis"
+          aria-expanded="false"
+          disabled
+        >
+          分析结果
+        </button>
+        <button
+          id="clear-analysis"
+          class="button outline"
+          type="button"
+          disabled
+        >
+          清除缓存
+        </button>
+      </div>
     </div>
+    <section
+      id="detail-analysis"
+      class="analysis-panel"
+      aria-label="AI 对局分析结果"
+      hidden
+    ></section>
     <div class="detail-tabs" role="tablist" aria-label="详情内容">
       <button
         class="active"
@@ -73,7 +110,7 @@ export function detailShell(data) {
         aria-selected="false"
         type="button"
       >
-        地图回顾
+        对局回放
       </button>
     </div>
     <div id="detail-overview" role="tabpanel">${overview(data)}</div>

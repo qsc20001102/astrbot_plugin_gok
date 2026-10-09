@@ -22,7 +22,7 @@
     "type": "string",
     "options": ["图片", "文本"],
     "default": "图片",
-    "hint": "影响「战绩」「资料」「对局」「角色」及其同义指令。图片使用 AstrBot 自带 HTML 渲染；文本展示简明结果。「功能」固定输出文本。"
+    "hint": "影响「战绩」「资料」「对局」「角色」「功能」及其同义指令。图片使用 AstrBot 自带 HTML 渲染，失败时自动降级为文本；订阅确认和主动推送使用文本。"
   },
   "battle_limit": {
     "description": "战绩默认显示场数",
@@ -79,6 +79,30 @@
         "default": "",
         "_special": "select_provider",
         "hint": "请明确选择已配置的对话模型，地图回顾页面和「分析」指令使用同一个模型；未选择时会提示配置。建议选择支持较长上下文的模型。"
+      },
+      "cache_retention_days": {
+        "description": "分析结果保留天数",
+        "type": "int",
+        "default": 150,
+        "hint": "网页和指令的分析结果按对局唯一 ID 保存到数据库，优先复用缓存。默认从保存时间起保留 150 天，填写正整数可修改；到期自动清理，读取不会延长保留期。修改模型或提示词后，需清除该场缓存才能重新分析。"
+      }
+    }
+  },
+  "subscriptions": {
+    "description": "订阅系统",
+    "type": "object",
+    "items": {
+      "status_poll_interval": {
+        "description": "状态订阅轮询时间（秒）",
+        "type": "int",
+        "default": 60,
+        "hint": "正整数；仅轮询已关联推送会话的状态订阅，0 与 1/2 之间变化时推送上下线，1 与 2 之间不推送。"
+      },
+      "battle_poll_interval": {
+        "description": "战绩订阅轮询时间（秒）",
+        "type": "int",
+        "default": 120,
+        "hint": "正整数；仅轮询已关联推送会话的战绩订阅。每次只推送最新已完成对局，中断恢复后不补推中间缺失战绩。"
       }
     }
   },

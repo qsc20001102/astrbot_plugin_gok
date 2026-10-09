@@ -392,8 +392,8 @@ async def run_tests() -> None:
 
 async def exercise(plugin, context, module, config) -> None:
     print("\n[装配]")
-    check("指令表已填充", len(plugin.command_map) == 11, str(len(plugin.command_map)))
-    check("页面路由已注册", len(context.routes) == 14, str(len(context.routes)))
+    check("指令表已填充", len(plugin.command_map) == 15, str(len(plugin.command_map)))
+    check("页面路由已注册", len(context.routes) == 18, str(len(context.routes)))
     route_paths = {r[0] for r in context.routes}
     for expected in (
         "dashboard",
@@ -408,6 +408,8 @@ async def exercise(plugin, context, module, config) -> None:
         "aliases/list",
         "aliases/update",
         "aliases/delete",
+        "subscriptions/list",
+        "subscriptions/update",
     ):
         check(
             f"路由存在：{expected}",
@@ -505,11 +507,34 @@ async def exercise(plugin, context, module, config) -> None:
     check("普通消息不响应", results10 == [] and not event10.sent)
 
     event11 = AstrMessageEvent("功能")
+    plugin.query_output = "text"
     await anext_result(plugin.on_all_message(event11))
     check(
-        "功能说明固定文本",
+        "功能说明支持文本且包含订阅指令",
         "战绩" in event11.texts() and all(r.kind == "plain" for r in event11.sent),
     )
+    plugin.query_output = "image"
+    help_image = AstrMessageEvent("功能")
+    await anext_result(plugin.on_all_message(help_image))
+    check("功能说明支持原生 HTML 图片", len(help_image.sent) == 1 and help_image.sent[0].kind == "image")
+    with patch.object(plugin.sender, "render", AsyncMock(side_effect=RuntimeError("render"))):
+        fallback = AstrMessageEvent("功能")
+        await anext_result(plugin.on_all_message(fallback))
+    check("功能图片失败回退完整指令文本", "订阅状态" in fallback.texts() and "取消订阅" in fallback.texts())
+
+    for command, kind in (("订阅状态", "status"), ("订阅战绩", "battle")):
+        event = AstrMessageEvent(f"{command} 123456789")
+        event.unified_msg_origin = "test:GroupMessage:100"
+        with patch.object(plugin.subscriptions, "subscribe", AsyncMock(return_value=plugin.service.ok("已订阅"))) as subscribe:
+            await anext_result(plugin.on_all_message(event))
+            check(f"{command}绑定当前完整会话 ID", subscribe.await_args.args == (kind, "123456789", event.unified_msg_origin))
+    cancel = AstrMessageEvent("取消订阅 123456789 状态")
+    with patch.object(plugin.subscriptions, "unsubscribe", AsyncMock(return_value=plugin.service.ok("已取消"))) as unsubscribe:
+        await anext_result(plugin.on_all_message(cancel))
+        check("取消订阅按当前会话和类型隔离", unsubscribe.await_args.args == ("123456789", cancel.unified_msg_origin, "status"))
+    view = AstrMessageEvent("查看订阅")
+    await anext_result(plugin.on_all_message(view))
+    check("查看订阅提供完整会话 ID", view.unified_msg_origin in view.texts())
 
     print("\n[输出模式与原生 HTML 渲染]")
     config["query_output"] = "文本"

@@ -110,6 +110,24 @@ h3 {
   margin-bottom: 6px;
   overflow-wrap: anywhere;
 }
+.game-status {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 4px;
+  margin-bottom: 7px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.game-status.online {
+  color: var(--success);
+  background: #eef8f2;
+}
+.game-status.playing {
+  color: var(--primary);
+  background: #edf2ff;
+}
 .rank-block {
   display: flex;
   align-items: center;

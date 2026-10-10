@@ -375,7 +375,7 @@ async def run_tests() -> None:
     config = {
         "prefix": {"enable": False, "text": "王者"},
         "battle_limit": 10,
-        "account_cooldown": 300,
+        "account_cooldown_minutes": 5,
         "tls_verify": True,
         "analysis": {"select_provider": "stub-provider"},
         "image": {"format": "jpeg", "device_scale_factor": "1.3", "jpeg_quality": 100},
@@ -423,6 +423,32 @@ async def exercise(plugin, context, module, config) -> None:
     check("未登录时给出提示", "尚未登录" in logger_stub.messages())
     check("服务层不再持有缓存参数", not hasattr(plugin.service, "cache_ttl"))
     check("插件不再读取缓存配置", not hasattr(plugin, "cache_ttl"))
+
+    print("\n[冷却分钟配置]")
+    schema = json.loads((ROOT / "_conf_schema.json").read_text(encoding="utf-8"))
+    cooldown = schema["account_cooldown_minutes"]
+    check(
+        "冷却配置使用分钟且上限为1800",
+        cooldown["default"] == 5
+        and cooldown["slider"] == {"min": 0, "max": 1800, "step": 1}
+        and "分钟" in cooldown["description"],
+    )
+    check("旧版冷却配置已移除", "account_cooldown" not in schema)
+    check("默认5分钟传入账号仓库为300秒", plugin.auth_store.cooldown_seconds == 300)
+    for value, expected in (
+        (0, 0),
+        (-1, 0),
+        (1, 60),
+        (1800, 108000),
+        (1801, 108000),
+        ("30", 1800),
+        ("invalid", 300),
+        (float("inf"), 300),
+    ):
+        with patch.object(plugin, "conf", {"account_cooldown_minutes": value}):
+            plugin._setup_config()
+        check(f"冷却分钟值 {value} 被正确转换和校验", plugin._account_cooldown == expected)
+    plugin._setup_config()
 
     print("\n[消息解析 / 前缀]")
     check(
@@ -829,7 +855,24 @@ async def exercise(plugin, context, module, config) -> None:
         failure = json.loads((await handler_for("login/poll")()).body)
         check(
             "登录终止错误传递给页面",
-            failure["terminal"] and failure["message"] == "换票失败",
+            failure["terminal"]
+            and failure["status"] == "failed"
+            and failure["message"] == "换票失败",
+        )
+
+    with patch.object(
+        plugin.login,
+        "poll",
+        AsyncMock(
+            return_value={"status": "error", "message": "保存失败，正在重试", "terminal": False}
+        ),
+    ):
+        retrying = json.loads((await handler_for("login/poll")()).body)
+        check(
+            "登录可恢复错误通过宿主桥接保留重试状态",
+            retrying["status"] == "retrying"
+            and not retrying["terminal"]
+            and retrying["message"] == "保存失败，正在重试",
         )
 
     for kind, method, data in (

@@ -45,6 +45,8 @@ from .core.webui import WebUIService
 
 PLUGIN_NAME = "astrbot_plugin_gok"
 PLAYER_SELECTION_TIMEOUT = 60
+DEFAULT_ACCOUNT_COOLDOWN_MINUTES = 5
+MAX_ACCOUNT_COOLDOWN_MINUTES = 1800
 
 
 class PlayerSelectionFilter(SessionFilter):
@@ -66,7 +68,7 @@ class PlayerSelectionFilter(SessionFilter):
     PLUGIN_NAME,
     "飞翔大野猪",
     "营地直连查询、AI 分析缓存与上下线/战绩订阅推送（微信或 QQ 扫码登录）",
-    "2.5.3",
+    "2.5.4",
     "https://github.com/qsc20001102/astrbot_plugin_gok",
 )
 class GokPlugin(Star):
@@ -123,7 +125,15 @@ class GokPlugin(Star):
                     )
 
         self.default_limit = self._int_config("battle_limit", 10, minimum=1, maximum=25)
-        self._account_cooldown = self._int_config("account_cooldown", 300, minimum=0)
+        self._account_cooldown = (
+            self._int_config(
+                "account_cooldown_minutes",
+                DEFAULT_ACCOUNT_COOLDOWN_MINUTES,
+                minimum=0,
+                maximum=MAX_ACCOUNT_COOLDOWN_MINUTES,
+            )
+            * 60
+        )
         self.request_timeout = float(self._int_config("request_timeout", 15, minimum=5))
         self.tls_verify = self.conf.get("tls_verify", True) is not False
         self.query_output = (
@@ -137,7 +147,7 @@ class GokPlugin(Star):
     ) -> int:
         try:
             value = int(self.conf.get(key, default))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return default
         value = max(minimum, value)
         return value if maximum is None else min(maximum, value)

@@ -30,7 +30,7 @@ def main() -> int:
         if path.name == "app.bundle.js":
             continue
         source.update(path.relative_to(PAGE).as_posix().encode())
-        source.update(path.read_bytes())
+        source.update(path.read_text(encoding="utf-8").encode("utf-8"))
     digest = source.hexdigest()
     output = PAGE / "app.bundle.js"
     marker = f"源码SHA256={digest}"

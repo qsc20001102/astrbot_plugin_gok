@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 import time
 from datetime import datetime
 from typing import Any
@@ -17,6 +18,7 @@ from .service import GokService
 from .subscription_storage import SubscriptionStorage
 
 KINDS = ("status", "battle")
+DEFAULT_POLL_JITTER_SECONDS = 10
 
 
 class SubscriptionService:
@@ -57,6 +59,28 @@ class SubscriptionService:
             return value if value > 0 else default
         except (TypeError, ValueError, OverflowError):
             return default
+
+    def jitter(self) -> int:
+        """Read the shared non-negative jitter range in seconds."""
+        try:
+            value = int(
+                (self.config.get("subscriptions", {}) or {}).get(
+                    "poll_jitter", DEFAULT_POLL_JITTER_SECONDS
+                )
+            )
+        except (TypeError, ValueError, OverflowError):
+            return DEFAULT_POLL_JITTER_SECONDS
+        return max(0, value)
+
+    def interval_bounds(self, kind: str) -> tuple[int, int]:
+        """Keep every possible delay positive, even when jitter exceeds the base."""
+        base, jitter = self.interval(kind), self.jitter()
+        return max(1, base - jitter), base + jitter
+
+    def next_interval(self, kind: str) -> int:
+        """Draw a new delay for a round; a zero jitter preserves fixed scheduling."""
+        lower, upper = self.interval_bounds(kind)
+        return random.randint(lower, upper) if lower != upper else lower
 
     async def initialize(self) -> None:
         """Initialize storage and start independent status and battle schedulers.
@@ -109,11 +133,10 @@ class SubscriptionService:
                 logger.exception("订阅轮询异常：%s", kind)
                 state["error"] = f"轮询失败（{type(exc).__name__}）"
             state["running"] = False
-            state["next_poll_at"] = time.time() + self.interval(kind)
+            delay = self.next_interval(kind)
+            state["next_poll_at"] = time.time() + delay
             try:
-                await asyncio.wait_for(
-                    self._wake[kind].wait(), timeout=self.interval(kind)
-                )
+                await asyncio.wait_for(self._wake[kind].wait(), timeout=delay)
             except TimeoutError:
                 pass
 
@@ -323,9 +346,13 @@ class SubscriptionService:
         for kind in KINDS:
             rows = [row for row in targets if row["kind"] == kind]
             active = sum(row["session_count"] > 0 for row in rows)
+            lower, upper = self.interval_bounds(kind)
             modules[kind] = {
                 **self._runtime[kind],
                 "interval": self.interval(kind),
+                "jitter": self.jitter(),
+                "interval_min": lower,
+                "interval_max": upper,
                 "active_count": active,
                 "targets": rows,
             }

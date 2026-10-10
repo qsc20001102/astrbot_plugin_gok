@@ -1,4 +1,4 @@
-//本文件由tools/build_frontend.py自动生成，勿直接编辑；源码SHA256=f72e8adaf43fc17d520643741578aff86328b78077cd52ac798276240629a8ec
+//本文件由tools/build_frontend.py自动生成，勿直接编辑；源码SHA256=a5ec28eb647c07dd1fec891aef71428d2d4e641fd9452631f8bc6e8e932c6a12
 (() => {
   // pages/camp-console/lib/api.js
   var bridge = window.AstrBotPluginPage;
@@ -1744,7 +1744,7 @@
     function render(next) {
       data = next;
       for (const kind of ["status", "battle"]) {
-        const module = data.modules[kind] || {}, rows = module.targets || [], active = module.active_count > 0;
+        const module = data.modules[kind] || {}, rows = module.targets || [], active = module.active_count > 0, intervalText = module.jitter > 0 ? `每 ${module.interval_min}～${module.interval_max} 秒随机检查（基础 ${module.interval} 秒，±${module.jitter} 秒）` : `每 ${module.interval} 秒检查`;
         byId(`${kind}-running`).textContent = module.running ? "轮询中" : active ? "运行中" : "已暂停";
         byId(`${kind}-running`).classList.toggle("active", active);
         byId(`${kind}-poll-times`).innerHTML = html`<div>
@@ -1755,7 +1755,7 @@
           ><strong>${active ? escapeHtml(time(module.next_poll_at)) : "暂停"}</strong>
         </div>
         <p>
-          每 ${escapeHtml(module.interval)} 秒检查 · ${escapeHtml(module.active_count || 0)}
+          ${escapeHtml(intervalText)} · ${escapeHtml(module.active_count || 0)}
           个订阅正在轮询
         </p>
         ${module.error ? html`<p class="danger">${escapeHtml(module.error)}</p>` : ""}`;

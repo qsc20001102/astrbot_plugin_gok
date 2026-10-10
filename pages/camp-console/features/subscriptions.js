@@ -36,7 +36,11 @@ export function initSubscriptions() {
     for (const kind of ["status", "battle"]) {
       const module = data.modules[kind] || {},
         rows = module.targets || [],
-        active = module.active_count > 0;
+        active = module.active_count > 0,
+        intervalText =
+          module.jitter > 0
+            ? `每 ${module.interval_min}～${module.interval_max} 秒随机检查（基础 ${module.interval} 秒，±${module.jitter} 秒）`
+            : `每 ${module.interval} 秒检查`;
       byId(`${kind}-running`).textContent = module.running
         ? "轮询中"
         : active
@@ -51,7 +55,7 @@ export function initSubscriptions() {
           ><strong>${active ? e(time(module.next_poll_at)) : "暂停"}</strong>
         </div>
         <p>
-          每 ${e(module.interval)} 秒检查 · ${e(module.active_count || 0)}
+          ${e(intervalText)} · ${e(module.active_count || 0)}
           个订阅正在轮询
         </p>
         ${module.error ? html`<p class="danger">${e(module.error)}</p>` : ""}`;

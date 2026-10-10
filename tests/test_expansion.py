@@ -7,6 +7,7 @@ import base64
 import json
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
@@ -431,6 +432,165 @@ class QQProtocol(unittest.IsolatedAsyncioTestCase):
         flow._playwright.stop.assert_awaited_once()
 
 
+class QQBrowserStartup(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.flow = QQLoginFlow()
+        self.locator = Mock(
+            bounding_box=AsyncMock(return_value={"width": 120, "height": 120}),
+            is_visible=AsyncMock(return_value=True),
+            screenshot=AsyncMock(return_value=b"test-png"),
+        )
+        frame = Mock()
+        frame.locator.return_value.first = self.locator
+        self.page = Mock(
+            goto=AsyncMock(return_value=Mock(ok=True, status=200)), frames=[frame]
+        )
+        self.context = Mock(
+            route=AsyncMock(),
+            new_page=AsyncMock(return_value=self.page),
+            new_cdp_session=AsyncMock(return_value=Mock(send=AsyncMock())),
+            close=AsyncMock(),
+        )
+        self.browser = Mock(
+            new_context=AsyncMock(return_value=self.context), close=AsyncMock()
+        )
+        self.runtime = Mock(
+            chromium=Mock(launch=AsyncMock(return_value=self.browser)), stop=AsyncMock()
+        )
+        self.driver = Mock(start=AsyncMock(return_value=self.runtime))
+        api = types.ModuleType("playwright.async_api")
+        api.async_playwright = Mock(return_value=self.driver)
+        self.logger = Mock()
+        for patcher in (
+            patch.dict(
+                sys.modules,
+                {"playwright": types.ModuleType("playwright"), "playwright.async_api": api},
+            ),
+            patch("core.login_qq._browser_executable", return_value=None),
+            patch("core.login_qq.logger", self.logger),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.addAsyncCleanup(self.flow.close)
+
+    async def test_missing_browser_has_install_hint_and_stops_driver(self):
+        self.runtime.chromium.launch.side_effect = Exception(
+            "BrowserType.launch: Executable doesn't exist at /cache/chrome"
+        )
+        with self.assertRaisesRegex(RuntimeError, "python -m playwright install chromium"):
+            await self.flow.start()
+        self.runtime.stop.assert_awaited_once()
+        self.browser.new_context.assert_not_awaited()
+        self.assertTrue(self.flow._closed)
+        self.assertIn("启动浏览器", str(self.logger.warning.call_args))
+
+    async def test_missing_linux_libraries_have_system_dependency_hint(self):
+        for detail in (
+            "Host system is missing dependencies to run browsers.",
+            "error while loading shared libraries: libnss3.so: cannot open shared object file",
+        ):
+            with self.subTest(detail=detail):
+                flow = QQLoginFlow()
+                self.runtime.chromium.launch.side_effect = Exception(detail)
+                with self.assertRaisesRegex(RuntimeError, "--with-deps chromium"):
+                    await flow.start()
+                self.assertTrue(flow._closed)
+
+    async def test_broken_system_browser_falls_back_and_returns_same_session_qr(self):
+        self.runtime.chromium.launch.side_effect = [
+            Exception("snap chromium cannot start"),
+            self.browser,
+        ]
+        with patch("core.login_qq._browser_executable", return_value="/usr/bin/chromium"):
+            image = await self.flow.start()
+        self.assertEqual(base64.b64decode(image), b"test-png")
+        calls = self.runtime.chromium.launch.call_args_list
+        self.assertEqual(calls[0].kwargs["executable_path"], "/usr/bin/chromium")
+        self.assertNotIn("executable_path", calls[1].kwargs)
+        self.assertEqual(len(calls), 2)
+        self.locator.screenshot.assert_awaited_once()
+        self.assertIs(self.flow._context, self.context)
+        self.assertIsNotNone(self.flow._expiry_task)
+
+    async def test_two_launch_failures_keep_diagnostics_and_install_hint(self):
+        self.runtime.chromium.launch.side_effect = [
+            Exception("snap chromium cannot start"),
+            Exception("Executable doesn't exist at /cache/chrome"),
+        ]
+        with patch("core.login_qq._browser_executable", return_value="/usr/bin/chromium"):
+            with self.assertRaisesRegex(RuntimeError, "playwright install chromium"):
+                await self.flow.start()
+        logs = str(self.logger.warning.call_args_list)
+        self.assertIn("snap chromium cannot start", logs)
+        self.assertIn("Executable doesn't exist", logs)
+        self.runtime.stop.assert_awaited_once()
+
+    async def test_system_browser_success_does_not_launch_another_browser(self):
+        with patch("core.login_qq._browser_executable", return_value="/usr/bin/chromium"):
+            await self.flow.start()
+        self.runtime.chromium.launch.assert_awaited_once()
+        self.assertEqual(
+            self.runtime.chromium.launch.call_args.kwargs["executable_path"],
+            "/usr/bin/chromium",
+        )
+
+    async def test_navigation_failure_reports_network_code_and_cleans_resources(self):
+        self.page.goto.side_effect = Exception(
+            "Page.goto: net::ERR_NAME_NOT_RESOLVED at "
+            "https://openmobile.qq.com/?code=SECRET_AUTH_CODE&token=SECRET_TOKEN"
+        )
+        with self.assertRaisesRegex(RuntimeError, "ERR_NAME_NOT_RESOLVED") as caught:
+            await self.flow.start()
+        self.assertIn("服务器或容器", str(caught.exception))
+        logs = str(self.logger.warning.call_args_list)
+        self.assertIn("访问 QQ 登录页", logs)
+        self.assertIn("ERR_NAME_NOT_RESOLVED", logs)
+        self.assertNotIn("SECRET_AUTH_CODE", logs)
+        self.assertNotIn("SECRET_TOKEN", logs)
+        self.context.close.assert_awaited_once()
+        self.browser.close.assert_awaited_once()
+        self.runtime.stop.assert_awaited_once()
+
+    async def test_navigation_timeout_is_distinct_from_browser_start_failure(self):
+        self.page.goto.side_effect = TimeoutError("Timeout 45000ms exceeded")
+        with self.assertRaisesRegex(RuntimeError, "QQ 登录页加载超时"):
+            await self.flow.start()
+        self.browser.close.assert_awaited_once()
+
+    async def test_http_error_is_reported_without_waiting_for_qr(self):
+        self.page.goto.return_value = Mock(ok=False, status=403)
+        with self.assertRaisesRegex(RuntimeError, "HTTP 403"):
+            await self.flow.start()
+        self.locator.screenshot.assert_not_awaited()
+        self.browser.close.assert_awaited_once()
+
+    async def test_qr_timeout_is_distinct_from_page_navigation_failure(self):
+        with patch(
+            "core.login_qq.time", Mock(monotonic=Mock(side_effect=[0, 41]))
+        ):
+            with self.assertRaisesRegex(RuntimeError, "登录页已打开，但二维码未能加载"):
+                await self.flow.start()
+        self.context.close.assert_awaited_once()
+        self.browser.close.assert_awaited_once()
+
+    async def test_cancellation_does_not_launch_fallback_or_wrap_error(self):
+        self.runtime.chromium.launch.side_effect = asyncio.CancelledError()
+        with patch("core.login_qq._browser_executable", return_value="/usr/bin/chromium"):
+            with self.assertRaises(asyncio.CancelledError):
+                await self.flow.start()
+        self.runtime.chromium.launch.assert_awaited_once()
+        self.runtime.stop.assert_awaited_once()
+        self.logger.warning.assert_not_called()
+
+    async def test_unknown_runtime_failure_does_not_expose_raw_details_to_page(self):
+        self.driver.start.side_effect = RuntimeError("internal token=SECRET_TOKEN")
+        with self.assertRaisesRegex(RuntimeError, "启动 Playwright") as caught:
+            await self.flow.start()
+        self.assertNotIn("SECRET_TOKEN", str(caught.exception))
+        self.assertNotIn("SECRET_TOKEN", str(self.logger.warning.call_args_list))
+        self.assertTrue(self.flow._closed)
+
+
 class LoginLifecycle(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         camp_login._SESSIONS.clear()
@@ -472,6 +632,26 @@ class LoginLifecycle(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0)
         self.assertNotIn(session.task_id, camp_login._SESSIONS)
         gate.set()
+
+    async def test_qq_preparation_failure_is_terminal_and_never_exchanges_credentials(self):
+        flow = Mock(
+            start=AsyncMock(side_effect=RuntimeError("QQ 登录浏览器缺少 Linux 系统依赖")),
+            close=AsyncMock(),
+        )
+        with patch("core.camp_login.QQLoginFlow", return_value=flow):
+            session, error = await self.manager.create_session("qq")
+        self.assertFalse(error)
+        await session.creation_task
+        with patch("core.camp_login.exchange_qq_code", new=AsyncMock()) as exchange:
+            first = await self.manager.poll(session.task_id)
+            second = await self.manager.poll(session.task_id)
+        self.assertEqual(first["status"], "error")
+        self.assertTrue(first["terminal"])
+        self.assertIn("Linux 系统依赖", first["message"])
+        self.assertEqual(first, second)
+        exchange.assert_not_awaited()
+        self.store.upsert.assert_not_awaited()
+        flow.close.assert_awaited_once()
 
     async def test_qq_auth_is_redeemed_once_and_saved_before_success(self):
         session, flow = await self.session()

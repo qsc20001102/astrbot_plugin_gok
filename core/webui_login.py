@@ -91,6 +91,9 @@ class WebLoginRoutes(WebRoutes):
                     "account": account.public_dict(),
                 }
             )
+        # The host bridge rejects status=error and discards business terminal flags.
+        if status == "error":
+            status = "failed" if result.get("terminal") else "retrying"
         return json_response(
             {
                 "status": status,

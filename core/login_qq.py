@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
+from astrbot.api import logger
+
 from .http import HttpClient
 
 QQ_APP_ID = "1105200115"
@@ -94,6 +96,61 @@ def _browser_executable() -> str | None:
     return None
 
 
+def _safe_error_detail(exc: Exception) -> str:
+    """Keep startup diagnostics without logging authorization URLs or secrets."""
+    detail = re.sub(r"[A-Za-z][A-Za-z0-9+.-]*://[^\s<>\"']+", "<URL>", str(exc))
+    detail = re.sub(
+        r"(?i)\b(code|token|access_token|refresh_token|cookie|authorization)\b"
+        r"(\s*[:=]\s*)[^\s,;]+",
+        r"\1\2<redacted>",
+        detail,
+    )
+    return detail[:2000]
+
+
+def _start_error_message(exc: Exception, stage: str) -> str:
+    """Translate browser startup and navigation failures into actionable hints."""
+    detail = str(exc).lower()
+    if stage == "启动浏览器":
+        if "executable doesn't exist" in detail or isinstance(exc, FileNotFoundError):
+            return (
+                "QQ 登录没有可启动的浏览器，请在运行 AstrBot 的同一环境和用户下执行 "
+                "python -m playwright install chromium 后重试"
+            )
+        if any(
+            marker in detail
+            for marker in (
+                "host system is missing dependencies",
+                "error while loading shared libraries",
+                "cannot open shared object file",
+                "missing libraries",
+            )
+        ):
+            return (
+                "QQ 登录浏览器缺少 Linux 系统依赖，请在 AstrBot 所在服务器或容器内执行 "
+                "python -m playwright install --with-deps chromium 后重试"
+            )
+        return "QQ 登录浏览器启动失败，请查看 AstrBot 后台的「QQ 登录准备失败」日志"
+    if stage == "访问 QQ 登录页":
+        network_error = re.search(r"net::(ERR_[A-Z0-9_]+)", str(exc))
+        if network_error:
+            return (
+                f"QQ 登录页访问失败（{network_error[1]}），请检查 AstrBot 所在服务器或容器"
+                "到 openmobile.qq.com 的网络、DNS 与证书"
+            )
+        if "timeout" in detail or isinstance(exc, TimeoutError):
+            return (
+                "QQ 登录页加载超时，请检查 AstrBot 所在服务器或容器"
+                "到 openmobile.qq.com 的网络后重试"
+            )
+        return "QQ 登录页访问失败，请查看 AstrBot 后台的「QQ 登录准备失败」日志"
+    return f"QQ 登录准备失败（{stage}），请查看 AstrBot 后台的「QQ 登录准备失败」日志"
+
+
+class _QQLoginError(RuntimeError):
+    """An actionable message already prepared for the login page."""
+
+
 class QQLoginFlow:
     """保持从出码到授权回调的同一浏览器会话，不共享 Cookies。"""
 
@@ -111,6 +168,23 @@ class QQLoginFlow:
         if not self._code:
             self._code = capture_auth_code(url)
 
+    async def _launch_browser(self) -> Any:
+        """Fall back to Playwright Chromium if the detected system browser fails."""
+        launch = {"headless": True, "timeout": 30000}
+        executable = _browser_executable()
+        if executable:
+            try:
+                return await self._playwright.chromium.launch(
+                    **launch, executable_path=executable
+                )
+            except Exception as exc:
+                logger.warning(
+                    "QQ 系统浏览器启动失败，尝试 Playwright Chromium（%s）：%s",
+                    type(exc).__name__,
+                    _safe_error_detail(exc),
+                )
+        return await self._playwright.chromium.launch(**launch)
+
     async def start(self, ttl_seconds: int = 180) -> str:
         """打开授权页，读取页面自身的二维码，并设置无人轮询时的清理期限。
 
@@ -127,13 +201,12 @@ class QQLoginFlow:
             from playwright.async_api import async_playwright
         except ImportError as exc:
             raise RuntimeError("QQ 登录依赖尚未安装，请安装插件依赖后重载") from exc
+        stage = "启动 Playwright"
         try:
             self._playwright = await async_playwright().start()
-            launch: dict[str, Any] = {"headless": True, "timeout": 30000}
-            executable = _browser_executable()
-            if executable:
-                launch["executable_path"] = executable
-            self._browser = await self._playwright.chromium.launch(**launch)
+            stage = "启动浏览器"
+            self._browser = await self._launch_browser()
+            stage = "创建登录会话"
             self._context = await self._browser.new_context(
                 user_agent=QQ_USER_AGENT,
                 viewport={"width": 420, "height": 760},
@@ -159,9 +232,15 @@ class QQLoginFlow:
             )
             cdp.on("Page.windowOpen", lambda event: self._capture(event.get("url", "")))
             self._page.on("framenavigated", lambda frame: self._capture(frame.url))
-            await self._page.goto(
+            stage = "访问 QQ 登录页"
+            response = await self._page.goto(
                 QQ_LOGIN_URL, wait_until="domcontentloaded", timeout=45000
             )
+            if response is not None and not response.ok:
+                raise _QQLoginError(
+                    f"QQ 登录页返回 HTTP {response.status}，请检查服务器或容器网络后重试"
+                )
+            stage = "读取二维码"
             # 二维码可能出现在子框架中；截图直接来自同一会话内的元素。
             deadline = time.monotonic() + 40
             while time.monotonic() < deadline:
@@ -187,18 +266,23 @@ class QQLoginFlow:
                             # 不同 QQ 页面版本可能不含当前选择器，继续检查其余候选。
                             continue
                 await asyncio.sleep(0.5)
-            raise RuntimeError("QQ 二维码未能加载，请稍后重新获取")
+            raise _QQLoginError(
+                "QQ 登录页已打开，但二维码未能加载，请检查服务器或容器网络后重新获取"
+            )
         except asyncio.CancelledError:
             await self.close()
             raise
-        except RuntimeError:
-            await self.close()
-            raise
         except Exception as exc:
+            logger.warning(
+                "QQ 登录准备失败（%s/%s）：%s",
+                stage,
+                type(exc).__name__,
+                _safe_error_detail(exc),
+            )
             await self.close()
-            raise RuntimeError(
-                "QQ 登录页暂不可用，请检查网络与浏览器安装后重试"
-            ) from exc
+            if isinstance(exc, _QQLoginError):
+                raise
+            raise RuntimeError(_start_error_message(exc, stage)) from exc
 
     async def _expire(self, seconds: int) -> None:
         try:

@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock, patch
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -347,6 +347,90 @@ class Subscriptions(unittest.IsolatedAsyncioTestCase):
         tasks = tuple(self.sub._tasks)
         await self.sub.close()
         self.assertTrue(all(task.cancelled() for task in tasks))
+
+    async def test_random_intervals_include_addition_and_subtraction_for_both_kinds(self):
+        self.config["subscriptions"]["poll_jitter"] = 10
+        for kind, bounds in (("status", (50, 70)), ("battle", (110, 130))):
+            with self.subTest(kind=kind):
+                with patch("core.subscriptions.random.randint", side_effect=bounds) as draw:
+                    self.assertEqual(self.sub.next_interval(kind), bounds[0])
+                    self.assertEqual(self.sub.next_interval(kind), bounds[1])
+                self.assertEqual(draw.call_args_list[0].args, bounds)
+                self.assertEqual(draw.call_args_list[1].args, bounds)
+
+    async def test_zero_or_negative_jitter_uses_fixed_intervals_without_random_draws(self):
+        for value in (0, -10):
+            with self.subTest(value=value):
+                self.config["subscriptions"]["poll_jitter"] = value
+                with patch("core.subscriptions.random.randint") as draw:
+                    self.assertEqual(self.sub.next_interval("status"), 60)
+                    self.assertEqual(self.sub.next_interval("battle"), 120)
+                draw.assert_not_called()
+
+    async def test_large_jitter_never_schedules_zero_or_negative_delay(self):
+        self.config["subscriptions"].update(status_poll_interval=3, poll_jitter=10)
+        self.assertEqual(self.sub.interval_bounds("status"), (1, 13))
+        with patch("core.subscriptions.random.randint", return_value=1) as draw:
+            self.assertEqual(self.sub.next_interval("status"), 1)
+        draw.assert_called_once_with(1, 13)
+
+    async def test_invalid_jitter_uses_default_and_runtime_changes_take_effect(self):
+        for value in (None, "invalid", float("nan"), float("inf")):
+            with self.subTest(value=value):
+                self.config["subscriptions"]["poll_jitter"] = value
+                self.assertEqual(self.sub.interval_bounds("status"), (50, 70))
+        self.config["subscriptions"]["poll_jitter"] = "15"
+        self.assertEqual(self.sub.interval_bounds("battle"), (105, 135))
+        self.config["subscriptions"]["status_poll_interval"] = 0
+        self.assertEqual(self.sub.interval_bounds("status"), (45, 75))
+
+    async def test_scheduler_draws_once_per_round_and_displays_the_same_delay_it_waits(self):
+        waits = []
+        deadlines = []
+
+        async def wait(awaitable, *, timeout):
+            awaitable.close()
+            waits.append(timeout)
+            deadlines.append(self.sub._runtime["status"]["next_poll_at"])
+            if len(waits) == 2:
+                raise asyncio.CancelledError()
+            raise TimeoutError()
+
+        with (
+            patch.object(self.sub.storage, "targets", AsyncMock(return_value=[{}])),
+            patch.object(self.sub, "poll", AsyncMock()) as poll,
+            patch("core.subscriptions.time", Mock(time=Mock(return_value=1000))),
+            patch("core.subscriptions.random.randint", side_effect=[57, 66]) as draw,
+            patch("core.subscriptions.asyncio.wait_for", side_effect=wait),
+        ):
+            with self.assertRaises(asyncio.CancelledError):
+                await self.sub._loop("status")
+        self.assertEqual(waits, [57, 66])
+        self.assertEqual(deadlines, [1057, 1066])
+        self.assertEqual(draw.call_count, 2)
+        self.assertEqual(poll.await_count, 2)
+
+    async def test_page_refresh_reports_bounds_without_resampling_scheduled_delay(self):
+        await self.watch("status")
+        self.sub._runtime["status"].update(last_poll_at=1000, next_poll_at=1057)
+        with patch("core.subscriptions.random.randint") as draw:
+            first = await self.sub.overview()
+            second = await self.sub.overview()
+        draw.assert_not_called()
+        state = first["modules"]["status"]
+        self.assertEqual((state["interval_min"], state["interval_max"]), (50, 70))
+        self.assertEqual(state["jitter"], 10)
+        self.assertEqual(state["next_poll_at"], second["modules"]["status"]["next_poll_at"])
+
+    async def test_paused_scheduler_does_not_draw_random_intervals(self):
+        await self.sub.add("status", "123456789")
+        with patch("core.subscriptions.random.randint") as draw:
+            await self.sub.initialize()
+            await asyncio.sleep(0.02)
+            await self.sub.close()
+        draw.assert_not_called()
+        self.api.get_profile.assert_not_awaited()
+        self.assertIsNone(self.sub._runtime["status"]["next_poll_at"])
 
     async def test_web_routes_validate_inputs_and_return_module_and_session_data(self):
         web = WebUIService(self.service, subscriptions=self.sub)
